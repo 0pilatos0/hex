@@ -6,13 +6,16 @@
 The wind-up teeth in `src/ChatteringTeeth.tsx` use separate body and foot groups:
 the soles remain planted during anticipation, the whole toy travels during the
 hop, and the body settles after contact. Wide screens use the perimeter; narrow
-screens use the space above the copy. The toy is hidden for three seconds, then
-hops in from the left to the center above the headline. Reduced motion reveals
-a still pose after the same delay. The canvas is click-through and decorative;
+screens use the space above the copy. A warm spotlight fades in from 1.4–2.4
+seconds, foreshadowing the landing. The toy stays hidden for three seconds, then
+hops in from the left to the center above the headline. The light fades away
+as roaming begins. Reduced motion reveals the light and toy as still poses at
+their respective delays. The canvas is click-through and decorative;
 the site has no microphone control or microphone access.
 
-The physical materials use a procedural studio environment for enamel, lacquer,
-and metal reflections, plus soft directional shadows. The environment is generated
+Rounded teeth, teal irises, and cherry-red lacquer use a three-softbox procedural
+studio environment for enamel and metal reflections, plus soft directional shadows.
+The environment is generated
 locally, with no remote model or lighting asset request.
 
 ## Social image

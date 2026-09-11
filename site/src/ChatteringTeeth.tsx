@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react"
 import * as THREE from "three"
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js"
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js"
 
 function createJaw(upper: boolean, toothMaterial: THREE.Material, shellMaterial: THREE.Material) {
@@ -24,8 +23,7 @@ function createJaw(upper: boolean, toothMaterial: THREE.Material, shellMaterial:
     const normalized = amount * 2 - 1
     const angle = normalized * 1.04
     const side = Math.abs(normalized)
-    const canine = upper && (index === 2 || index === 8)
-    const tooth = new THREE.Mesh(canine ? new THREE.ConeGeometry(0.24, 0.95, 40) : toothGeometry, toothMaterial)
+    const tooth = new THREE.Mesh(toothGeometry, toothMaterial)
 
     tooth.position.set(
       Math.sin(angle) * 2.02,
@@ -34,12 +32,7 @@ function createJaw(upper: boolean, toothMaterial: THREE.Material, shellMaterial:
     )
     tooth.rotation.y = -angle * 0.92
     tooth.rotation.z = upper ? normalized * 0.025 : -normalized * 0.025
-    tooth.scale.set(0.9 - side * 0.22, canine ? 1 : 0.88 - side * 0.13, 1 + side * 0.32)
-    if (canine) {
-      tooth.position.y -= 0.12
-      tooth.rotation.z = Math.PI
-      tooth.scale.z = 0.7
-    }
+    tooth.scale.set(0.94 - side * 0.24, 0.95 - side * 0.16, 1 + side * 0.32)
     jaw.add(tooth)
   }
 
@@ -61,26 +54,48 @@ export default function ChatteringTeeth() {
     })
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.15
+    renderer.toneMappingExposure = 1
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
     const scene = new THREE.Scene()
     const pmrem = new THREE.PMREMGenerator(renderer)
-    const room = new RoomEnvironment()
-    const environment = pmrem.fromScene(room, 0.04)
+    // Three large softboxes give the lacquer readable highlights instead of
+    // reflecting a busy room. The environment is baked once, entirely locally.
+    const studio = new THREE.Scene()
+    studio.background = new THREE.Color(0x202433)
+    for (const [position, size, intensity] of [
+      [[-4, 5, 4], [4, 6], 5],
+      [[5, 1, 3], [2, 5], 2],
+      [[0, 6, -3], [5, 2], 4],
+    ] as const) {
+      const panel = new THREE.Mesh(
+        new THREE.PlaneGeometry(...size),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(intensity, intensity, intensity) }),
+      )
+      panel.position.set(position[0], position[1], position[2])
+      panel.lookAt(0, 0, 0)
+      studio.add(panel)
+    }
+    const environment = pmrem.fromScene(studio, 0.08)
     scene.environment = environment.texture
-    scene.environmentIntensity = 0.8
-    room.dispose()
+    scene.environmentIntensity = 0.85
+    studio.traverse(object => {
+      if (object instanceof THREE.Mesh) {
+        object.geometry.dispose()
+        object.material.dispose()
+      }
+    })
     pmrem.dispose()
 
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 40)
     camera.position.set(0, 0, 9)
 
-    const toothMaterial = new THREE.MeshPhysicalMaterial({ color: 0xfff4d9, roughness: 0.25, clearcoat: 0.7, clearcoatRoughness: 0.16 })
-    const shellMaterial = new THREE.MeshPhysicalMaterial({ color: 0xa50725, roughness: 0.3, metalness: 0.18, clearcoat: 1, clearcoatRoughness: 0.18 })
-    const eyeMaterial = new THREE.MeshPhysicalMaterial({ color: 0xfffaf0, roughness: 0.16, clearcoat: 1 })
-    const pupilMaterial = new THREE.MeshPhysicalMaterial({ color: 0x030509, roughness: 0.12, clearcoat: 1 })
+    const toothMaterial = new THREE.MeshPhysicalMaterial({ color: 0xfff4df, roughness: 0.3, clearcoat: 0.45, clearcoatRoughness: 0.23 })
+    const shellMaterial = new THREE.MeshPhysicalMaterial({ color: 0xb20a29, roughness: 0.32, metalness: 0.08, clearcoat: 0.85, clearcoatRoughness: 0.23 })
+    const eyeMaterial = new THREE.MeshPhysicalMaterial({ color: 0xfffaf0, roughness: 0.23, clearcoat: 0.6 })
+    const pupilMaterial = new THREE.MeshPhysicalMaterial({ color: 0x030509, roughness: 0.2, clearcoat: 0.8 })
+    const irisMaterial = new THREE.MeshPhysicalMaterial({ color: 0x41676a, roughness: 0.3, clearcoat: 0.7 })
     const innerMaterial = new THREE.MeshStandardMaterial({ color: 0x260613, roughness: 0.75 })
     const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xaab4c0, roughness: 0.24, metalness: 1 })
 
@@ -90,16 +105,20 @@ export default function ChatteringTeeth() {
     const lowerJaw = createJaw(false, toothMaterial, shellMaterial)
 
     const eyeGeometry = new THREE.SphereGeometry(0.64, 40, 28)
-    const pupilGeometry = new THREE.SphereGeometry(0.27, 32, 20)
+    const pupilGeometry = new THREE.SphereGeometry(0.21, 32, 20)
     const pupils: THREE.Mesh[] = []
     for (const x of [-0.7, 0.7]) {
       const eye = new THREE.Mesh(eyeGeometry, eyeMaterial)
       eye.position.set(x, 1.7, 0.54)
       upperJaw.add(eye)
 
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(0.31, 40, 24), irisMaterial)
+      iris.position.set(x, 1.7, 1.105)
+      iris.scale.z = 0.28
+      upperJaw.add(iris)
       const pupil = new THREE.Mesh(pupilGeometry, pupilMaterial)
-      pupil.position.set(x, 1.7, 1.11)
-      pupil.scale.z = 0.58
+      pupil.position.set(x, 1.7, 1.18)
+      pupil.scale.z = 0.3
       pupil.userData.homeX = x
       pupils.push(pupil)
       upperJaw.add(pupil)
@@ -179,7 +198,7 @@ export default function ChatteringTeeth() {
       }
     })
     scene.add(new THREE.AmbientLight(0x879bb5, 0.3))
-    const keyLight = new THREE.DirectionalLight(0xfff2dc, 3.5)
+    const keyLight = new THREE.DirectionalLight(0xfff2dc, 2.4)
     keyLight.position.set(-3.5, 4.5, 6)
     scene.add(keyLight)
     keyLight.castShadow = true
@@ -187,12 +206,59 @@ export default function ChatteringTeeth() {
     Object.assign(keyLight.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 0.1, far: 30 })
     keyLight.shadow.normalBias = 0.025
     keyLight.shadow.bias = -0.0001
-    const fillLight = new THREE.DirectionalLight(0x62bde8, 1.25)
+    const fillLight = new THREE.DirectionalLight(0xa4c9ef, 0.8)
     fillLight.position.set(4, -2, 3)
     scene.add(fillLight)
-    const rimLight = new THREE.DirectionalLight(0xff5273, 3)
+    const rimLight = new THREE.DirectionalLight(0xffb7a5, 2)
     rimLight.position.set(1, 3, -4)
     scene.add(rimLight)
+
+    // A visible pool of light announces the landing before the actor arrives.
+    const lightCanvas = document.createElement("canvas")
+    lightCanvas.width = lightCanvas.height = 256
+    const lightContext = lightCanvas.getContext("2d")!
+    const glow = lightContext.createRadialGradient(128, 128, 0, 128, 128, 128)
+    glow.addColorStop(0, "rgba(255, 226, 177, 0.8)")
+    glow.addColorStop(0.48, "rgba(255, 221, 162, 0.5)")
+    glow.addColorStop(0.75, "rgba(255, 216, 150, 0.12)")
+    glow.addColorStop(1, "rgba(255, 216, 150, 0)")
+    lightContext.fillStyle = glow
+    lightContext.fillRect(0, 0, 256, 256)
+    const lightTexture = new THREE.CanvasTexture(lightCanvas)
+    lightTexture.colorSpace = THREE.SRGBColorSpace
+    const poolMaterial = new THREE.MeshBasicMaterial({
+      map: lightTexture, transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending, toneMapped: false,
+    })
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), poolMaterial)
+    scene.add(pool)
+    const beamCanvas = document.createElement("canvas")
+    beamCanvas.width = 256
+    beamCanvas.height = 512
+    const beamContext = beamCanvas.getContext("2d")!
+    const beamGradient = beamContext.createLinearGradient(0, 0, 0, 512)
+    beamGradient.addColorStop(0, "rgba(255, 229, 186, 0)")
+    beamGradient.addColorStop(0.35, "rgba(255, 229, 186, 0.04)")
+    beamGradient.addColorStop(1, "rgba(255, 229, 186, 0.13)")
+    beamContext.fillStyle = beamGradient
+    beamContext.filter = "blur(8px)"
+    beamContext.beginPath()
+    beamContext.moveTo(128, 0)
+    beamContext.lineTo(244, 512)
+    beamContext.lineTo(12, 512)
+    beamContext.closePath()
+    beamContext.fill()
+    const beamTexture = new THREE.CanvasTexture(beamCanvas)
+    beamTexture.colorSpace = THREE.SRGBColorSpace
+    const beamMaterial = new THREE.MeshBasicMaterial({
+      map: beamTexture, transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending, toneMapped: false,
+    })
+    const beam = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), beamMaterial)
+    scene.add(beam)
+    const spotlight = new THREE.SpotLight(0xffdfb2, 0, 15, Math.PI / 7, 0.8, 0)
+    spotlight.position.set(0, 5, 4)
+    scene.add(spotlight, spotlight.target)
 
     const timer = new THREE.Timer()
     timer.connect(document)
@@ -246,6 +312,18 @@ export default function ChatteringTeeth() {
       const wide = window.innerWidth >= 1000
       const x = Math.max(0, stageWidth / 2 - root.scale.x * 3.5)
       const y = stageHeight / 2 - root.scale.x * 3.3 - 0.35
+      const lightIn = THREE.MathUtils.smoothstep(elapsed, 1.4, 2.4)
+      const lightOut = 1 - THREE.MathUtils.smoothstep(elapsed, 5, 6.2)
+      const lightLevel = poster ? 0 : reducedMotion.matches ? (elapsed >= 1.4 ? 0.6 : 0) : lightIn * lightOut
+      poolMaterial.opacity = lightLevel * 0.65
+      pool.position.set(0, y - root.scale.x * 2.45, -0.1)
+      pool.scale.set(root.scale.x * 8, root.scale.x * 1.2, 1)
+      const beamTop = stageHeight / 2 + 0.2
+      beam.position.set(0, (beamTop + pool.position.y) / 2, -0.2)
+      beam.scale.set(root.scale.x * 8, beamTop - pool.position.y, 1)
+      beamMaterial.opacity = lightLevel
+      spotlight.target.position.set(0, y, 0)
+      spotlight.intensity = lightLevel * 1.2
       const stops = wide
         ? [[0, y], [x, y], [x, -y], [0, -y], [-x, -y], [-x, y]]
         : [[0, y], [x * 0.45, y], [-x * 0.45, y]]
@@ -311,8 +389,13 @@ export default function ChatteringTeeth() {
       shellMaterial.dispose()
       eyeMaterial.dispose()
       pupilMaterial.dispose()
+      irisMaterial.dispose()
       innerMaterial.dispose()
       metalMaterial.dispose()
+      poolMaterial.dispose()
+      lightTexture.dispose()
+      beamMaterial.dispose()
+      beamTexture.dispose()
       environment.dispose()
       keyLight.shadow.map?.dispose()
       renderer.dispose()

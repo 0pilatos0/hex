@@ -475,6 +475,13 @@ the explicit GitHub mirror/version link in `README.md`, and the Homebrew cask.
 Build the site with `bun run --cwd site build`, then deploy from `site` with
 `wrangler deploy`; its checked-in config targets `hex-voice-site` at
 `hex.kitlangton.dev`. Verify both download links after deployment.
+Also update the separate `https://hex.kitlangton.com` site in
+`/Users/kit/code/projects/hex-marketing-site`: its `MAC_VERSION` lives in
+`src/app/components/TerminalSimulation.tsx`. Run its documented checks and
+`vercel --prod` from that repo. The linked Vercel project also owns
+`hex-marketing-site.vercel.app` and `hex-marketing-site-kit-langtons-projects.vercel.app`.
+Both marketing sites must show the same release, custom-host download, and
+explicit GitHub alternative; verify the production domains after deploying.
 The Rust app is named `Hex`, packaged as `Hex.app`,
 with bundle identifier `com.kitlangton.hex2` and executable `hex`. Kit has approved
 his personal Developer ID signing team `QC99C9JE59` for this app. Signing requires

@@ -37,6 +37,14 @@ After each macOS publication, update the site's `MAC_VERSION`, the README's
 explicit app mirror link, and `anomalyco/homebrew-tap/Casks/hex.rb`. Deploy the
 site using its checked-in Wrangler config and verify both rendered links.
 
+There is a second marketing site at **https://hex.kitlangton.com/**. Its repo is
+`/Users/kit/code/projects/hex-marketing-site`, with `MAC_VERSION` in
+`src/app/components/TerminalSimulation.tsx`. Deploy it separately using
+`vercel --prod`. The linked `hex-marketing-site` Vercel project also updates its
+`hex-marketing-site.vercel.app` and
+`hex-marketing-site-kit-langtons-projects.vercel.app` production aliases.
+Updating the Cloudflare `.dev` site does not update this Vercel `.com` site.
+
 ## Network Recovery
 
 App and model downloads have different hosts. Managed networks may need to allow:

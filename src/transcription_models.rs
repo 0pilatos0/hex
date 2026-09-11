@@ -806,7 +806,14 @@ pub fn download_with_stage_progress(
         if let Some(mut pipe) = child.stderr.take() {
             pipe.read_to_string(&mut stderr)?;
         }
-        bail!("model download failed with {status}: {}", stderr.trim());
+        bail!(
+            "Could not download the model from huggingface.co or its download CDN. \
+             Check your connection, then retry in Settings. On a managed network, \
+             ask IT to allow Hugging Face model downloads. \
+             The app download uses a separate host. Download progress is kept for retry. \
+             Details ({status}): {}",
+            stderr.trim()
+        );
     }
     check_canceled(canceled)?;
     ModelPreparationStage::Verifying.store(stage);

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-base_url=${HEX_RELEASE_BASE_URL:-https://pub-089d681d41754031a4aefa7017d8c2fb.r2.dev}
+base_url=${HEX_RELEASE_BASE_URL:-https://downloads.hex.kitlangton.dev}
 install_dir=${HEX_INSTALL_DIR:-"$HOME/.local/bin"}
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}

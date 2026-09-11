@@ -1,8 +1,11 @@
 import * as m from "motion/react-m"
 import ChatteringTeeth from "./ChatteringTeeth"
 
+const MAC_VERSION = "2.1.16"
 const DOWNLOAD_URL =
-  "https://pub-089d681d41754031a4aefa7017d8c2fb.r2.dev/releases/HEX-latest-arm64.dmg"
+  `https://downloads.hex.kitlangton.dev/releases/HEX-${MAC_VERSION}-arm64.dmg`
+const GITHUB_DOWNLOAD_URL =
+  `https://github.com/anomalyco/hex/releases/download/app-v${MAC_VERSION}/HEX-${MAC_VERSION}-arm64.dmg`
 const LINUX_INSTALL_URL = "https://github.com/anomalyco/hex/blob/main/docs/linux.md"
 
 function HexMark() {
@@ -85,8 +88,13 @@ export default function App() {
             </m.a>
           )}
           <p className="requirements">
-            {isLinux ? "x86_64 Arch/X11 beta" : "Apple silicon  ·  macOS 15+"}
+            {isLinux ? "x86_64 Arch Linux beta" : `Version ${MAC_VERSION}  ·  Apple silicon  ·  macOS 15+`}
           </p>
+          {!isLinux && (
+            <a className="download-alternative" href={GITHUB_DOWNLOAD_URL}>
+              Alternative download: GitHub
+            </a>
+          )}
         </div>
       </section>
     </m.main>

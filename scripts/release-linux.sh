@@ -5,7 +5,7 @@ root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 mode=${1:-prepare}
 version=${HEX_VERSION:-$(cargo metadata --no-deps --format-version 1 --manifest-path "$root/Cargo.toml" | jq -r '.packages[0].version')}
 bucket=${HEX_RELEASE_BUCKET:-hex-releases}
-base_url=${HEX_RELEASE_BASE_URL:-https://pub-089d681d41754031a4aefa7017d8c2fb.r2.dev}
+base_url=${HEX_RELEASE_BASE_URL:-https://downloads.hex.kitlangton.dev}
 dist="$root/dist"
 target_dir=${CARGO_TARGET_DIR:-"$root/target"}
 feed="$dist/linux-update.json"

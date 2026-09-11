@@ -51,6 +51,12 @@ Sources: `load_command_recognizer` and live policy handling in
 These cover a controlled loader, notice copy, and settings transitions, not
 download-to-speech recognition or physical microphone readiness.
 
+Transfer failures identify `download.moonshine.ai`, suggest restoring connectivity
+or asking IT to allow that host, and direct the user to Retry. The error also
+explains that hotkey dictation does not need the Commands model. Existing partial
+downloads are retained for retry; this is distinct from the app download host.
+See [download recovery](README.md#get-ready).
+
 ### Awake And Asleep
 
 ```ts

@@ -8,7 +8,7 @@ version=${HEX_VERSION:-$(cargo metadata --no-deps --format-version 1 --manifest-
 build_number=${HEX_BUILD_NUMBER:-$(printf '%s\n' "$version" | awk -F. '{ print ($1 * 10000) + ($2 * 100) + $3 }')}
 notary_profile=${HEX_NOTARY_PROFILE:?Set HEX_NOTARY_PROFILE to the matching notarization profile}
 bucket=${HEX_RELEASE_BUCKET:-hex-releases}
-base_url=${HEX_RELEASE_BASE_URL:-https://pub-089d681d41754031a4aefa7017d8c2fb.r2.dev}
+base_url=${HEX_RELEASE_BASE_URL:-https://downloads.hex.kitlangton.dev}
 release_notes=${HEX_RELEASE_NOTES:-$root/docs/releases/$version.md}
 dist="$root/dist"
 updates="$dist/updates"
@@ -71,20 +71,36 @@ if [ "$mode" = "publish" ]; then
   trap - EXIT HUP INT TERM
   wrangler r2 object put "$bucket/releases/$artifact" --remote \
     --file "$dist/$artifact" \
-    --content-type application/x-apple-diskimage
+    --content-type application/x-apple-diskimage \
+    --cache-control 'public, max-age=31536000, immutable'
   wrangler r2 object put "$bucket/releases/$update_artifact" --remote \
     --file "$dist/$update_artifact" \
-    --content-type application/zip
+    --content-type application/zip \
+    --cache-control 'public, max-age=31536000, immutable'
+  verification=$(mktemp -d "${TMPDIR:-/tmp}/hex-release-downloads.XXXXXX")
+  trap 'rm -rf "$verification"' EXIT HUP INT TERM
+  for file in "$artifact" "$update_artifact"; do
+    curl --fail --silent --show-error --proto '=https' \
+      --connect-timeout 15 --max-time 600 "$base_url/releases/$file" -o "$verification/$file"
+    cmp -s "$dist/$file" "$verification/$file"
+  done
+  sh "$root/scripts/publish-app-mirror.sh" "$version" "$dist/$artifact" \
+    "$release_notes" "$(git -C "$root" rev-parse HEAD)"
+  # Both artifact origins must serve the exact bytes before moving public pointers.
   wrangler r2 object put "$bucket/releases/$latest_artifact" --remote \
     --file "$dist/$artifact" \
-    --content-type application/x-apple-diskimage
+    --content-type application/x-apple-diskimage \
+    --cache-control 'no-cache'
+  curl --fail --silent --show-error --connect-timeout 15 --max-time 600 \
+    "$base_url/releases/$latest_artifact" -o "$verification/$latest_artifact"
+  cmp -s "$dist/$artifact" "$verification/$latest_artifact"
   wrangler r2 object put "$bucket/appcast.xml" --remote \
     --file "$updates/appcast.xml" \
-    --content-type application/xml
-  curl --fail --silent --show-error "$base_url/releases/$artifact" -o /dev/null
-  curl --fail --silent --show-error "$base_url/releases/$update_artifact" -o /dev/null
-  curl --fail --silent --show-error "$base_url/releases/$latest_artifact" -o /dev/null
-  curl --fail --silent --show-error "$base_url/appcast.xml" -o /dev/null
+    --content-type application/xml \
+    --cache-control 'no-cache'
+  curl --fail --silent --show-error --connect-timeout 15 --max-time 60 \
+    "$base_url/appcast.xml" -o "$verification/appcast.xml"
+  cmp -s "$updates/appcast.xml" "$verification/appcast.xml"
   echo "$base_url/releases/$artifact"
   exit 0
 fi

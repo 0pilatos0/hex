@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://pub-089d681d41754031a4aefa7017d8c2fb.r2.dev/releases/HEX-latest-arm64.dmg"><strong>Download for macOS</strong></a>
+  <a href="https://downloads.hex.kitlangton.dev/releases/HEX-latest-arm64.dmg"><strong>Download for macOS</strong></a>
   · <a href="https://hex.kitlangton.dev/">Website</a>
   · <a href="docs/linux.md">Linux beta</a>
   · <a href="sdk/typescript/README.md">TypeScript SDK</a>
@@ -49,7 +49,7 @@ or forcibly replace another app already named `Hex.app`.
 
 Or install manually:
 
-1. [Download the latest signed DMG](https://pub-089d681d41754031a4aefa7017d8c2fb.r2.dev/releases/HEX-latest-arm64.dmg) and open it.
+1. [Download the latest signed DMG](https://downloads.hex.kitlangton.dev/releases/HEX-latest-arm64.dmg) and open it.
 2. Drag `Hex.app` into Applications, then launch it.
 3. Complete the permission and model steps in setup.
 
@@ -61,9 +61,17 @@ Or install manually:
 HEX checks for signed updates automatically. Use **HEX > Check for Updates...**
 to check immediately.
 
-**Looking for the Mac app in GitHub Releases?** Those releases currently contain
-the TypeScript SDK. Use the DMG link above for the app and its built-in updater
-for subsequent releases.
+**Download blocked?** [Alternative download: GitHub — Hex 2.1.16](https://github.com/anomalyco/hex/releases/download/app-v2.1.16/HEX-2.1.16-arm64.dmg)
+contains the identical signed DMG for Apple silicon and macOS 15+. App releases
+use `app-v…` tags; the repository also publishes separate TypeScript SDK releases.
+If an older installation cannot check for updates on your network, install the
+DMG manually over the existing Rust app.
+
+On managed networks, ask IT to allow `downloads.hex.kitlangton.dev` for the app
+and updates. Local model setup separately needs `huggingface.co` and its model
+download CDN; optional Voice Commands needs `download.moonshine.ai`. A successful
+app download does not establish that those model hosts are reachable. After
+restoring access, retry model preparation in Settings (or Retry for Commands).
 
 Coming from the original Swift app? Install the new app manually and complete
 setup. Settings and history are not transferred. Quit the old app before

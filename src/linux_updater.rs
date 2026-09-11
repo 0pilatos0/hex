@@ -12,8 +12,8 @@ use semver::Version;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-const UPDATE_URL: &str = "https://pub-089d681d41754031a4aefa7017d8c2fb.r2.dev/linux-update.json";
-const RELEASE_ORIGIN: &str = "https://pub-089d681d41754031a4aefa7017d8c2fb.r2.dev/releases/";
+const UPDATE_URL: &str = "https://downloads.hex.kitlangton.dev/linux-update.json";
+const RELEASE_ORIGIN: &str = "https://downloads.hex.kitlangton.dev/releases/";
 const MAX_FEED_BYTES: u64 = 64 * 1024;
 const MAX_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
 const PUBLIC_KEY: [u8; 32] = [

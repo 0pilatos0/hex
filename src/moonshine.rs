@@ -163,7 +163,11 @@ pub fn install_model() -> Result<PathBuf> {
             .wrap_err("could not start Moonshine model download")?;
         if !output.status.success() {
             return Err(eyre!(
-                "Moonshine model download failed with {}: {}",
+                "Could not download the Commands model from download.moonshine.ai. \
+                 Check your connection, then choose Retry. On a managed network, \
+                 ask IT to allow download.moonshine.ai. \
+                 Hotkey dictation does not require this model. Download progress is kept for retry. \
+                 Details ({}): {}",
                 output.status,
                 String::from_utf8_lossy(&output.stderr).trim()
             ));

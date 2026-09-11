@@ -99,6 +99,7 @@ a {
 
 .wordmark:focus-visible,
 .download:focus-visible,
+.download-alternative:focus-visible,
 .mic-button:focus-visible {
   outline: 2px solid #a9b9ff;
   outline-offset: 4px;
@@ -123,6 +124,17 @@ a {
   color: #777b82;
   font-size: 0.75rem;
   letter-spacing: 0.02em;
+}
+
+.download-alternative {
+  color: #a7aab0;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.download-alternative:hover {
+  color: #f3f3f0;
 }
 
 .hero {

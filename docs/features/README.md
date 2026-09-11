@@ -38,6 +38,38 @@ Swift app, or forcibly replace an existing app destination. Homebrew uninstall
 leaves runtime settings, models, and retained data intact.
 
 ```ts
+Download Hex                              // setup.download-recovery
+├── Website / README / Homebrew -> downloads.hex.kitlangton.dev -> R2 bytes
+├── Alternative download: GitHub -> app-v<version> -> identical signed DMG
+└── Older app cannot reach its update feed -> manually install the DMG
+
+Prepare local models                      // separate network dependency
+├── Dictation -> huggingface.co and its download CDN
+└── Commands -> download.moonshine.ai
+    └── Transfer fails -> host-specific guidance -> restore access -> Retry
+```
+
+The website shows the pinned macOS version and platform requirements beside its
+download links. App mirrors use explicit `app-v…` release tags rather than GitHub's
+repository-wide latest release, which may refer to the SDK. The legacy `r2.dev`
+endpoint remains available for installed clients. New builds use the custom host
+for Sparkle and Linux updates; the signed Linux payload and verification key are
+unchanged. Hosting does not guarantee access through every corporate policy.
+
+Sources: [website](../../site/src/App.tsx), [mirror publisher](../../scripts/publish-app-mirror.sh),
+[macOS release publisher](../../scripts/release-app.sh),
+[Linux installer](../../scripts/install-linux-release.sh), and
+[Linux updater](../../src/linux_updater.rs). The macOS publisher verifies the
+downloaded R2 artifacts and GitHub mirror before publishing the appcast.
+Model transfer failures in [transcription_models.rs](../../src/transcription_models.rs)
+and [moonshine.rs](../../src/moonshine.rs) explain the source host, retry, and
+separate prerequisites. These messages do not diagnose a particular firewall
+or establish a successful subsequent model download.
+Executed hosting checks and deployment details are recorded in
+[Download Hosting](../downloads.md). In-app feed defaults and recovery copy ship
+with 2.1.17; the initial 2.1.16 mirror preserves that release's original bytes.
+
+```ts
 Launch Hex                               // setup
   -> Grant Microphone / Input Monitoring / Accessibility
   -> Choose language and local model

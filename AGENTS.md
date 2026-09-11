@@ -463,7 +463,19 @@ precedence while available; override everything with `--device`. The app bundle
 build requires Xcode 26 for Icon Composer compilation and a Developer ID signing
 identity. `scripts/release-app.sh` prepares a notarized and stapled DMG plus its
 signed Sparkle appcast; run `scripts/release-app.sh publish` only after validating
-the prepared artifact. The Rust app is named `Hex`, packaged as `Hex.app`,
+the prepared artifact. Public app downloads and update feeds use
+`https://downloads.hex.kitlangton.dev`, connected directly to the `hex-releases`
+R2 bucket through Custom Domains. Preserve the legacy public R2 endpoint for
+installed clients. The publisher verifies both R2 artifacts and the identical
+GitHub DMG mirror before publishing the appcast. GitHub app releases use
+`app-v<VERSION>` tags with `--latest=false`, keeping them distinct from SDK
+releases. Never overwrite a published artifact with different bytes.
+After publishing a new macOS version, update `MAC_VERSION` in `site/src/App.tsx`,
+the explicit GitHub mirror/version link in `README.md`, and the Homebrew cask.
+Build the site with `bun run --cwd site build`, then deploy from `site` with
+`wrangler deploy`; its checked-in config targets `hex-voice-site` at
+`hex.kitlangton.dev`. Verify both download links after deployment.
+The Rust app is named `Hex`, packaged as `Hex.app`,
 with bundle identifier `com.kitlangton.hex2` and executable `hex`. Kit has approved
 his personal Developer ID signing team `QC99C9JE59` for this app. Signing requires
 an explicit `VOICE_CONTROL_TEAM_ID` and matching `HEX_NOTARY_PROFILE`; the build

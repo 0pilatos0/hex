@@ -71,7 +71,7 @@ sudo pacman -S --needed alsa-lib curl gtk3 gtk-layer-shell jq libappindicator-gt
   libxkbcommon libxkbcommon-x11 libx11 libxcb openblas openssl util-linux \
   vulkan-icd-loader wl-clipboard wtype xxd
 curl --proto '=https' --tlsv1.2 -fsSLO \
-  https://pub-089d681d41754031a4aefa7017d8c2fb.r2.dev/install-linux.sh
+  https://downloads.hex.kitlangton.dev/install-linux.sh
 less install-linux.sh
 sh install-linux.sh
 ~/.local/bin/hex model install

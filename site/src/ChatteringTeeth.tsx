@@ -1,16 +1,18 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 import * as THREE from "three"
-import { OutlineEffect } from "three/examples/jsm/effects/OutlineEffect.js"
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js"
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js"
-
-type MicrophoneState = "idle" | "requesting" | "listening" | "error"
 
 function createJaw(upper: boolean, toothMaterial: THREE.Material, shellMaterial: THREE.Material) {
   const jaw = new THREE.Group()
-  const shell = new THREE.Mesh(
-    new RoundedBoxGeometry(4.5, 0.92, 1.18, 8, 0.3),
-    shellMaterial,
-  )
+  const shellGeometry = new RoundedBoxGeometry(4.5, 0.8, 1.24, 8, 0.28)
+  const positions = shellGeometry.attributes.position
+  for (let i = 0; i < positions.count; i++) {
+    const arch = 1 - Math.pow(positions.getX(i) / 2.25, 2)
+    positions.setZ(i, positions.getZ(i) + arch * 0.28)
+  }
+  shellGeometry.computeVertexNormals()
+  const shell = new THREE.Mesh(shellGeometry, shellMaterial)
   shell.position.set(0, upper ? 0.78 : -0.78, 0.34)
   jaw.add(shell)
 
@@ -22,7 +24,8 @@ function createJaw(upper: boolean, toothMaterial: THREE.Material, shellMaterial:
     const normalized = amount * 2 - 1
     const angle = normalized * 1.04
     const side = Math.abs(normalized)
-    const tooth = new THREE.Mesh(toothGeometry, toothMaterial)
+    const canine = upper && (index === 2 || index === 8)
+    const tooth = new THREE.Mesh(canine ? new THREE.ConeGeometry(0.24, 0.95, 40) : toothGeometry, toothMaterial)
 
     tooth.position.set(
       Math.sin(angle) * 2.02,
@@ -31,9 +34,12 @@ function createJaw(upper: boolean, toothMaterial: THREE.Material, shellMaterial:
     )
     tooth.rotation.y = -angle * 0.92
     tooth.rotation.z = upper ? normalized * 0.025 : -normalized * 0.025
-    const canine = upper && (index === 2 || index === 8)
-    tooth.scale.set(0.9 - side * 0.22, canine ? 1.25 : 0.88 - side * 0.13, 1 + side * 0.32)
-    if (canine) tooth.position.y += upper ? -0.08 : 0.08
+    tooth.scale.set(0.9 - side * 0.22, canine ? 1 : 0.88 - side * 0.13, 1 + side * 0.32)
+    if (canine) {
+      tooth.position.y -= 0.12
+      tooth.rotation.z = Math.PI
+      tooth.scale.z = 0.7
+    }
     jaw.add(tooth)
   }
 
@@ -41,12 +47,7 @@ function createJaw(upper: boolean, toothMaterial: THREE.Material, shellMaterial:
 }
 
 export default function ChatteringTeeth() {
-  const [state, setState] = useState<MicrophoneState>("idle")
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const audioContextRef = useRef<AudioContext | null>(null)
-  const analyserRef = useRef<AnalyserNode | null>(null)
-  const listeningRef = useRef(false)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -60,54 +61,28 @@ export default function ChatteringTeeth() {
     })
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1
-    const outline = new OutlineEffect(renderer, {
-      defaultThickness: 0.008,
-      defaultColor: [0.012, 0.014, 0.018],
-      defaultAlpha: 0.9,
-      defaultKeepAlive: true,
-    })
+    renderer.toneMappingExposure = 1.15
+    renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
     const scene = new THREE.Scene()
-    scene.fog = new THREE.FogExp2(0x08090a, 0.055)
+    const pmrem = new THREE.PMREMGenerator(renderer)
+    const room = new RoomEnvironment()
+    const environment = pmrem.fromScene(room, 0.04)
+    scene.environment = environment.texture
+    scene.environmentIntensity = 0.8
+    room.dispose()
+    pmrem.dispose()
 
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 40)
     camera.position.set(0, 0, 9)
 
-    const gradientMap = new THREE.DataTexture(
-      new Uint8Array([48, 112, 184, 255]),
-      4,
-      1,
-      THREE.RedFormat,
-    )
-    gradientMap.minFilter = THREE.NearestFilter
-    gradientMap.magFilter = THREE.NearestFilter
-    gradientMap.needsUpdate = true
-
-    const toothMaterial = new THREE.MeshToonMaterial({
-      color: 0xffffff,
-      gradientMap,
-    })
-    const shellMaterial = new THREE.MeshToonMaterial({
-      color: 0xf12549,
-      gradientMap,
-    })
-    const eyeMaterial = new THREE.MeshToonMaterial({
-      color: 0xf6f4ee,
-      gradientMap,
-    })
-    const pupilMaterial = new THREE.MeshToonMaterial({
-      color: 0x020203,
-      gradientMap,
-    })
-    const innerMaterial = new THREE.MeshToonMaterial({
-      color: 0x21040b,
-      gradientMap,
-    })
-    const metalMaterial = new THREE.MeshToonMaterial({
-      color: 0x8ca3b3,
-      gradientMap,
-    })
+    const toothMaterial = new THREE.MeshPhysicalMaterial({ color: 0xfff4d9, roughness: 0.25, clearcoat: 0.7, clearcoatRoughness: 0.16 })
+    const shellMaterial = new THREE.MeshPhysicalMaterial({ color: 0xa50725, roughness: 0.3, metalness: 0.18, clearcoat: 1, clearcoatRoughness: 0.18 })
+    const eyeMaterial = new THREE.MeshPhysicalMaterial({ color: 0xfffaf0, roughness: 0.16, clearcoat: 1 })
+    const pupilMaterial = new THREE.MeshPhysicalMaterial({ color: 0x030509, roughness: 0.12, clearcoat: 1 })
+    const innerMaterial = new THREE.MeshStandardMaterial({ color: 0x260613, roughness: 0.75 })
+    const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xaab4c0, roughness: 0.24, metalness: 1 })
 
     const root = new THREE.Group()
     const rig = new THREE.Group()
@@ -128,9 +103,6 @@ export default function ChatteringTeeth() {
       pupil.userData.homeX = x
       pupils.push(pupil)
       upperJaw.add(pupil)
-      const glint = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 12), eyeMaterial)
-      glint.position.set(x - 0.07, 1.8, 1.28)
-      upperJaw.add(glint)
     }
 
     const inner = new THREE.Mesh(
@@ -154,12 +126,13 @@ export default function ChatteringTeeth() {
     const crankShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.78, 18), metalMaterial)
     crankShaft.rotation.z = Math.PI / 2
     crankShaft.position.x = -2.56
-    const crankHandle = new THREE.Mesh(
-      new RoundedBoxGeometry(0.32, 0.7, 0.28, 5, 0.11),
-      eyeMaterial,
-    )
-    crankHandle.position.x = -2.95
-    crank.add(crankShaft, crankHandle)
+    crank.add(crankShaft)
+    for (const side of [-1, 1]) {
+      const bow = new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.08, 12, 32), metalMaterial)
+      bow.position.set(-2.97, side * 0.22, 0)
+      bow.scale.x = 0.7
+      crank.add(bow)
+    }
 
     const hingeGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.24, 28)
     for (const x of [-2.22, 2.22]) {
@@ -167,6 +140,13 @@ export default function ChatteringTeeth() {
       hinge.rotation.x = Math.PI / 2
       hinge.position.set(x, -0.08, 0.47)
       rig.add(hinge)
+      const screw = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.04, 24), metalMaterial)
+      screw.rotation.x = Math.PI / 2
+      screw.position.set(x, -0.08, 0.61)
+      const slot = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.025, 0.01), innerMaterial)
+      slot.position.set(x, -0.08, 0.635)
+      slot.rotation.z = x > 0 ? 0.5 : -0.4
+      rig.add(screw, slot)
     }
 
     rig.add(inner, axle, crank, upperJaw, lowerJaw)
@@ -174,12 +154,15 @@ export default function ChatteringTeeth() {
     const feet: THREE.Group[] = []
     for (const side of [-1, 1]) {
       const foot = new THREE.Group()
-      foot.position.set(side * 0.95, -1.7, 0.3)
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.65, 16), metalMaterial)
-      leg.position.y = 0.25
-      const shoe = new THREE.Mesh(new RoundedBoxGeometry(0.85, 0.35, 1.25, 6, 0.16), shellMaterial)
+      foot.position.set(side * 0.95, -2.15, 0.3)
+      const coils = Array.from({ length: 97 }, (_, i) => {
+        const t = i / 96
+        return new THREE.Vector3(Math.cos(t * Math.PI * 8) * 0.14, t * 0.8, Math.sin(t * Math.PI * 8) * 0.14)
+      })
+      const leg = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(coils), 96, 0.045, 8, false), metalMaterial)
+      const shoe = new THREE.Mesh(new RoundedBoxGeometry(1.03, 0.4, 1.55, 6, 0.18), shellMaterial)
       shoe.position.z = 0.3
-      const sole = new THREE.Mesh(new RoundedBoxGeometry(0.9, 0.12, 1.3, 4, 0.05), innerMaterial)
+      const sole = new THREE.Mesh(new RoundedBoxGeometry(1.08, 0.12, 1.6, 4, 0.05), innerMaterial)
       sole.position.set(0, -0.18, 0.3)
       foot.add(leg, shoe, sole)
       foot.rotation.y = side * 0.2
@@ -189,21 +172,32 @@ export default function ChatteringTeeth() {
     root.add(rig)
     scene.add(root)
 
-    scene.add(new THREE.AmbientLight(0x526073, 1.35))
-    const keyLight = new THREE.DirectionalLight(0xfff5e7, 3.2)
+    root.traverse(object => {
+      if (object instanceof THREE.Mesh) {
+        object.castShadow = true
+        object.receiveShadow = true
+      }
+    })
+    scene.add(new THREE.AmbientLight(0x879bb5, 0.3))
+    const keyLight = new THREE.DirectionalLight(0xfff2dc, 3.5)
     keyLight.position.set(-3.5, 4.5, 6)
     scene.add(keyLight)
+    keyLight.castShadow = true
+    keyLight.shadow.mapSize.set(2048, 2048)
+    Object.assign(keyLight.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 0.1, far: 30 })
+    keyLight.shadow.normalBias = 0.025
+    keyLight.shadow.bias = -0.0001
     const fillLight = new THREE.DirectionalLight(0x62bde8, 1.25)
     fillLight.position.set(4, -2, 3)
     scene.add(fillLight)
+    const rimLight = new THREE.DirectionalLight(0xff5273, 3)
+    rimLight.position.set(1, 3, -4)
+    scene.add(rimLight)
 
     const timer = new THREE.Timer()
     timer.connect(document)
-    const frequencyData = new Uint8Array(64)
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
     let frame = 0
-    let smoothedLevel = 0
-    let chatterPhase = 0
     const poster = new URLSearchParams(window.location.search).has("og")
     let stageWidth = 0
     let stageHeight = 0
@@ -214,7 +208,7 @@ export default function ChatteringTeeth() {
       camera.aspect = width / height
       camera.updateProjectionMatrix()
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
-      outline.setSize(width, height, false)
+      renderer.setSize(width, height, false)
 
       stageHeight = 2 * Math.tan(THREE.MathUtils.degToRad(18)) * 9
       stageWidth = stageHeight * camera.aspect
@@ -223,48 +217,27 @@ export default function ChatteringTeeth() {
       root.position.set(0, width < 640 ? 1.98 : 1.58, 0)
     }
 
-    function microphoneLevel() {
-      const analyser = analyserRef.current
-      if (!analyser) return 0
-      analyser.getByteFrequencyData(frequencyData)
-
-      let energy = 0
-      for (let index = 1; index < 34; index += 1) energy += frequencyData[index]
-      const average = energy / 33
-      return THREE.MathUtils.clamp((average - 4) / 62, 0, 1)
-    }
-
     function animate() {
       timer.update()
-      const delta = Math.min(timer.getDelta(), 0.04)
       const elapsed = timer.getElapsed()
-      const motionTime = poster || reducedMotion.matches ? 0 : elapsed
-      const rawLevel = listeningRef.current ? microphoneLevel() : 0
-      smoothedLevel = smoothedLevel * 0.58 + rawLevel * 0.42
+      root.visible = poster || elapsed >= 3
+      const motionTime = poster || reducedMotion.matches ? 0 : Math.max(0, elapsed - 4)
       const idleCycle = motionTime % 3.8
       const idleChatter = !poster && !reducedMotion.matches && idleCycle < 0.82
         ? Math.pow((Math.sin(motionTime * 48) + 1) / 2, 1.7) * 0.3
         : 0
 
-      if (listeningRef.current) chatterPhase += delta * (42 + smoothedLevel * 42)
-      const chatter = Math.pow((Math.sin(chatterPhase) + 1) / 2, 1.5)
-      const jawOpen = listeningRef.current
-        ? 0.18 + chatter * (0.38 + smoothedLevel * 0.62)
-        : 0.18 + idleChatter
-      const impact = listeningRef.current ? Math.pow(1 - chatter, 12) * (0.02 + smoothedLevel * 0.04) : 0
+      const jawOpen = 0.18 + idleChatter
 
       upperJaw.position.y = jawOpen * 0.06
       lowerJaw.position.y = -jawOpen * 0.94
       lowerJaw.rotation.x = -jawOpen * 0.16
-      crank.rotation.x = chatterPhase * 0.7
+      crank.rotation.x = motionTime * 0.7
       for (const pupil of pupils) {
         pupil.position.x = pupil.userData.homeX + Math.sin(motionTime * 0.7) * 0.045
-        pupil.position.y = 1.7 + Math.cos(motionTime * 0.55) * 0.025 - impact
+        pupil.position.y = 1.7 + Math.cos(motionTime * 0.55) * 0.025
       }
-      rig.position.y = -impact
-      rig.rotation.z = Math.sin(chatterPhase * 0.5) * smoothedLevel * 0.025
-      rig.rotation.y = Math.sin(chatterPhase * 0.37) * smoothedLevel * 0.02
-      keyLight.intensity = 3.2 + smoothedLevel * 0.9
+      rig.position.y = 0
 
       // A pause, a short preload, a ballistic flight, then a damped landing.
       // Travel along the top/bottom margins; cross vertically only in wide gutters.
@@ -274,8 +247,8 @@ export default function ChatteringTeeth() {
       const x = Math.max(0, stageWidth / 2 - root.scale.x * 3.5)
       const y = stageHeight / 2 - root.scale.x * 3.3 - 0.35
       const stops = wide
-        ? [[-x, y], [0, y], [x, y], [x, -y], [0, -y], [-x, -y]]
-        : [[-x * 0.45, y], [x * 0.45, y]]
+        ? [[0, y], [x, y], [x, -y], [0, -y], [-x, -y], [-x, y]]
+        : [[0, y], [x * 0.45, y], [-x * 0.45, y]]
       const index = Math.floor(cycle) % stops.length
       const from = stops[index]
       const to = stops[(index + 1) % stops.length]
@@ -292,6 +265,15 @@ export default function ChatteringTeeth() {
       lowerJaw.rotation.x += landing * 0.08
       for (const [i, foot] of feet.entries()) {
         foot.rotation.x = Math.sin(flight * Math.PI) * (i === 0 ? 0.45 : -0.3)
+      }
+      if (!poster && !reducedMotion.matches && elapsed < 4) {
+        const entrance = THREE.MathUtils.clamp(elapsed - 3, 0, 1)
+        root.position.set(
+          THREE.MathUtils.lerp(-stageWidth / 2 - root.scale.x * 4, 0, entrance),
+          y + Math.sin(entrance * Math.PI) * 0.45,
+          0,
+        )
+        for (const foot of feet) foot.rotation.x = Math.sin(entrance * Math.PI) * 0.4
       }
       if (poster) {
         root.position.set(2.65, 0, 0)
@@ -311,7 +293,7 @@ export default function ChatteringTeeth() {
           + landing * 0.04
       }
 
-      outline.render(scene, camera)
+      renderer.render(scene, camera)
       frame = requestAnimationFrame(animate)
     }
 
@@ -331,89 +313,12 @@ export default function ChatteringTeeth() {
       pupilMaterial.dispose()
       innerMaterial.dispose()
       metalMaterial.dispose()
-      gradientMap.dispose()
+      environment.dispose()
+      keyLight.shadow.map?.dispose()
       renderer.dispose()
       timer.dispose()
     }
   }, [])
 
-  useEffect(() => {
-    return () => {
-      listeningRef.current = false
-      streamRef.current?.getTracks().forEach((track) => track.stop())
-      void audioContextRef.current?.close()
-    }
-  }, [])
-
-  function stopListening() {
-    listeningRef.current = false
-    streamRef.current?.getTracks().forEach((track) => track.stop())
-    streamRef.current = null
-    analyserRef.current = null
-    void audioContextRef.current?.close()
-    audioContextRef.current = null
-    setState("idle")
-  }
-
-  async function toggleMicrophone() {
-    if (listeningRef.current) {
-      stopListening()
-      return
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setState("error")
-      return
-    }
-
-    setState("requesting")
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const audioContext = new AudioContext()
-      const analyser = audioContext.createAnalyser()
-      analyser.fftSize = 128
-      analyser.smoothingTimeConstant = 0.48
-      audioContext.createMediaStreamSource(stream).connect(analyser)
-
-      streamRef.current = stream
-      audioContextRef.current = audioContext
-      analyserRef.current = analyser
-      listeningRef.current = true
-      setState("listening")
-    } catch {
-      setState("error")
-    }
-  }
-
-  const label = state === "listening" ? "Stop chattering teeth" : "Make the teeth speak"
-  const status =
-    state === "requesting"
-      ? "Waiting for microphone permission"
-      : state === "listening"
-        ? "Listening. The teeth are following your voice."
-        : state === "error"
-          ? "Microphone access is unavailable."
-          : ""
-
-  return (
-    <>
-      <canvas ref={canvasRef} className="teeth-canvas" aria-hidden="true" />
-      <div className="mic-control">
-        <button
-          className={`mic-button mic-button--${state}`}
-          type="button"
-          aria-label={label}
-          aria-pressed={state === "listening"}
-          aria-describedby="microphone-status"
-          disabled={state === "requesting"}
-          onClick={toggleMicrophone}
-        >
-          <span className="mic-button__glyph" aria-hidden="true" />
-        </button>
-        <span id="microphone-status" className="visually-hidden" aria-live="polite">
-          {status}
-        </span>
-      </div>
-    </>
-  )
+  return <canvas ref={canvasRef} className="teeth-canvas" aria-hidden="true" />
 }

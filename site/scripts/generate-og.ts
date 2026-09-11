@@ -15,7 +15,7 @@ try {
     h1 { font-size: 66px; max-width: 8ch; line-height: 1.03; }
     .hero__copy > p { font-size: 20px; max-width: 330px; text-align: left; margin-top: 18px; }
     .hero__title { display: block; }
-    .mic-control, .download, .requirements, .download-alternative { display: none !important; }
+    .download, .requirements, .download-alternative { display: none !important; }
   ` })
   await page.locator(".hero__copy > p").evaluate(el => { el.textContent = "Private, local voice dictation. For Mac and Linux." })
   // Let the GPU present the fixed pose after styles and fonts settle.

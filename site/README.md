@@ -6,8 +6,14 @@
 The wind-up teeth in `src/ChatteringTeeth.tsx` use separate body and foot groups:
 the soles remain planted during anticipation, the whole toy travels during the
 hop, and the body settles after contact. Wide screens use the perimeter; narrow
-screens use the space above the copy. Reduced motion freezes idle movement.
-The canvas is click-through and microphone access remains an explicit button action.
+screens use the space above the copy. The toy is hidden for three seconds, then
+hops in from the left to the center above the headline. Reduced motion reveals
+a still pose after the same delay. The canvas is click-through and decorative;
+the site has no microphone control or microphone access.
+
+The physical materials use a procedural studio environment for enamel, lacquer,
+and metal reflections, plus soft directional shadows. The environment is generated
+locally, with no remote model or lighting asset request.
 
 ## Social image
 

@@ -5,8 +5,8 @@ This maps existing behavior. [ROADMAP.md](../../ROADMAP.md) owns future work;
 [AGENTS.md](../../AGENTS.md) owns implementation invariants.
 
 Initial source baseline: September 1, 2026, `9e9da53aa9ed`. Public macOS release:
-[2.1.16](../releases/2.1.16.md), with the long-form Cohere correction and menu-bar
-model switching. The initial map was source-only. Listed checks are
+[2.1.17](../releases/2.1.17.md), with custom-domain downloads, a GitHub DMG mirror,
+and model-download recovery guidance. The initial map was source-only. Listed checks are
 locators unless an executed result is explicitly recorded, as in the
 [keyboard-layout verification](recovery.md#keyboard-layout-resolution).
 

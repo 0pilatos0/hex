@@ -61,7 +61,7 @@ Or install manually:
 HEX checks for signed updates automatically. Use **HEX > Check for Updates...**
 to check immediately.
 
-**Download blocked?** [Alternative download: GitHub — Hex 2.1.16](https://github.com/anomalyco/hex/releases/download/app-v2.1.16/HEX-2.1.16-arm64.dmg)
+**Download blocked?** [Alternative download: GitHub — Hex 2.1.17](https://github.com/anomalyco/hex/releases/download/app-v2.1.17/HEX-2.1.17-arm64.dmg)
 contains the identical signed DMG for Apple silicon and macOS 15+. App releases
 use `app-v…` tags; the repository also publishes separate TypeScript SDK releases.
 If an older installation cannot check for updates on your network, install the

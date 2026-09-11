@@ -31,7 +31,9 @@ function createJaw(upper: boolean, toothMaterial: THREE.Material, shellMaterial:
     )
     tooth.rotation.y = -angle * 0.92
     tooth.rotation.z = upper ? normalized * 0.025 : -normalized * 0.025
-    tooth.scale.set(1 - side * 0.24, 1 - side * 0.13, 1 + side * 0.32)
+    const canine = upper && (index === 2 || index === 8)
+    tooth.scale.set(0.9 - side * 0.22, canine ? 1.25 : 0.88 - side * 0.13, 1 + side * 0.32)
+    if (canine) tooth.position.y += upper ? -0.08 : 0.08
     jaw.add(tooth)
   }
 
@@ -126,6 +128,9 @@ export default function ChatteringTeeth() {
       pupil.userData.homeX = x
       pupils.push(pupil)
       upperJaw.add(pupil)
+      const glint = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 12), eyeMaterial)
+      glint.position.set(x - 0.07, 1.8, 1.28)
+      upperJaw.add(glint)
     }
 
     const inner = new THREE.Mesh(
@@ -165,6 +170,22 @@ export default function ChatteringTeeth() {
     }
 
     rig.add(inner, axle, crank, upperJaw, lowerJaw)
+    // Feet belong to the root: the body can crouch without sliding the soles.
+    const feet: THREE.Group[] = []
+    for (const side of [-1, 1]) {
+      const foot = new THREE.Group()
+      foot.position.set(side * 0.95, -1.7, 0.3)
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.65, 16), metalMaterial)
+      leg.position.y = 0.25
+      const shoe = new THREE.Mesh(new RoundedBoxGeometry(0.85, 0.35, 1.25, 6, 0.16), shellMaterial)
+      shoe.position.z = 0.3
+      const sole = new THREE.Mesh(new RoundedBoxGeometry(0.9, 0.12, 1.3, 4, 0.05), innerMaterial)
+      sole.position.set(0, -0.18, 0.3)
+      foot.add(leg, shoe, sole)
+      foot.rotation.y = side * 0.2
+      feet.push(foot)
+      root.add(foot)
+    }
     root.add(rig)
     scene.add(root)
 
@@ -183,6 +204,9 @@ export default function ChatteringTeeth() {
     let frame = 0
     let smoothedLevel = 0
     let chatterPhase = 0
+    const poster = new URLSearchParams(window.location.search).has("og")
+    let stageWidth = 0
+    let stageHeight = 0
 
     function resize() {
       const width = window.innerWidth
@@ -192,7 +216,9 @@ export default function ChatteringTeeth() {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
       outline.setSize(width, height, false)
 
-      const rootScale = THREE.MathUtils.clamp(width / 1800, 0.24, 0.38)
+      stageHeight = 2 * Math.tan(THREE.MathUtils.degToRad(18)) * 9
+      stageWidth = stageHeight * camera.aspect
+      const rootScale = poster ? 0.82 : Math.min(0.31, stageWidth / 18)
       root.scale.setScalar(rootScale)
       root.position.set(0, width < 640 ? 1.98 : 1.58, 0)
     }
@@ -212,18 +238,19 @@ export default function ChatteringTeeth() {
       timer.update()
       const delta = Math.min(timer.getDelta(), 0.04)
       const elapsed = timer.getElapsed()
+      const motionTime = poster || reducedMotion.matches ? 0 : elapsed
       const rawLevel = listeningRef.current ? microphoneLevel() : 0
       smoothedLevel = smoothedLevel * 0.58 + rawLevel * 0.42
-      const idleCycle = elapsed % 3.8
-      const idleChatter = !reducedMotion.matches && idleCycle < 0.82
-        ? Math.pow((Math.sin(elapsed * 48) + 1) / 2, 1.7) * 0.3
+      const idleCycle = motionTime % 3.8
+      const idleChatter = !poster && !reducedMotion.matches && idleCycle < 0.82
+        ? Math.pow((Math.sin(motionTime * 48) + 1) / 2, 1.7) * 0.3
         : 0
 
       if (listeningRef.current) chatterPhase += delta * (42 + smoothedLevel * 42)
       const chatter = Math.pow((Math.sin(chatterPhase) + 1) / 2, 1.5)
       const jawOpen = listeningRef.current
-        ? 0.04 + chatter * (0.38 + smoothedLevel * 0.62)
-        : 0.025 + idleChatter
+        ? 0.18 + chatter * (0.38 + smoothedLevel * 0.62)
+        : 0.18 + idleChatter
       const impact = listeningRef.current ? Math.pow(1 - chatter, 12) * (0.02 + smoothedLevel * 0.04) : 0
 
       upperJaw.position.y = jawOpen * 0.06
@@ -231,18 +258,57 @@ export default function ChatteringTeeth() {
       lowerJaw.rotation.x = -jawOpen * 0.16
       crank.rotation.x = chatterPhase * 0.7
       for (const pupil of pupils) {
-        pupil.position.x = pupil.userData.homeX + Math.sin(elapsed * 0.7) * 0.045
-        pupil.position.y = 1.7 + Math.cos(elapsed * 0.55) * 0.025 - impact
+        pupil.position.x = pupil.userData.homeX + Math.sin(motionTime * 0.7) * 0.045
+        pupil.position.y = 1.7 + Math.cos(motionTime * 0.55) * 0.025 - impact
       }
       rig.position.y = -impact
       rig.rotation.z = Math.sin(chatterPhase * 0.5) * smoothedLevel * 0.025
       rig.rotation.y = Math.sin(chatterPhase * 0.37) * smoothedLevel * 0.02
       keyLight.intensity = 3.2 + smoothedLevel * 0.9
 
-      if (!reducedMotion.matches) {
+      // A pause, a short preload, a ballistic flight, then a damped landing.
+      // Travel along the top/bottom margins; cross vertically only in wide gutters.
+      const cycle = motionTime / 2.8
+      const beat = cycle % 1
+      const wide = window.innerWidth >= 1000
+      const x = Math.max(0, stageWidth / 2 - root.scale.x * 3.5)
+      const y = stageHeight / 2 - root.scale.x * 3.3 - 0.35
+      const stops = wide
+        ? [[-x, y], [0, y], [x, y], [x, -y], [0, -y], [-x, -y]]
+        : [[-x * 0.45, y], [x * 0.45, y]]
+      const index = Math.floor(cycle) % stops.length
+      const from = stops[index]
+      const to = stops[(index + 1) % stops.length]
+      const flight = THREE.MathUtils.clamp((beat - 0.38) / 0.32, 0, 1)
+      const crouch = beat > 0.26 && beat < 0.38 ? Math.sin((beat - 0.26) / 0.12 * Math.PI) : 0
+      const landing = beat > 0.7 ? Math.sin((beat - 0.7) * 50) * Math.exp(-(beat - 0.7) * 22) : 0
+      root.position.set(
+        THREE.MathUtils.lerp(from[0], to[0], flight),
+        THREE.MathUtils.lerp(from[1], to[1], flight) + Math.sin(flight * Math.PI) * 0.35,
+        0,
+      )
+      rig.position.y -= crouch * 0.24 + landing * 0.14
+      upperJaw.position.y += landing * 0.1
+      lowerJaw.rotation.x += landing * 0.08
+      for (const [i, foot] of feet.entries()) {
+        foot.rotation.x = Math.sin(flight * Math.PI) * (i === 0 ? 0.45 : -0.3)
+      }
+      if (poster) {
+        root.position.set(2.65, 0, 0)
+        root.rotation.set(-0.08, -0.35, -0.08)
+        lowerJaw.position.y = -0.32
+      }
+      if (reducedMotion.matches && !poster) {
+        root.position.x = 0
+        root.rotation.set(0, 0, 0)
+      }
+
+      if (!reducedMotion.matches && !poster) {
         root.rotation.y = Math.sin(elapsed * 0.62) * 0.5
         root.rotation.x = -0.04 + Math.cos(elapsed * 0.38) * 0.055
         root.rotation.z = Math.sin(elapsed * 0.31) * 0.035
+          - Math.sign(to[0] - from[0]) * Math.sin(flight * Math.PI) * 0.12
+          + landing * 0.04
       }
 
       outline.render(scene, camera)

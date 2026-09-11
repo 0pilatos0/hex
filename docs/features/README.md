@@ -56,6 +56,14 @@ endpoint remains available for installed clients. New builds use the custom host
 for Sparkle and Linux updates; the signed Linux payload and verification key are
 unchanged. Hosting does not guarantee access through every corporate policy.
 
+The `.dev` site's decorative wind-up teeth have feet and hop around desktop
+margins, or above the copy on narrow screens. The canvas passes clicks through;
+microphone animation still requires an explicit click. Reduced motion freezes
+idle movement. Its Open Graph image is rendered from the same model; see
+[site authoring](../../site/README.md). Desktop/mobile animation frames were
+inspected, and reduced-motion canvas captures were pixel-identical four seconds
+apart in Chromium. These checks do not exercise a live microphone.
+
 Sources: [website](../../site/src/App.tsx), [mirror publisher](../../scripts/publish-app-mirror.sh),
 [macOS release publisher](../../scripts/release-app.sh),
 [Linux installer](../../scripts/install-linux-release.sh), and

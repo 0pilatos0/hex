@@ -14,6 +14,7 @@
   alsa-lib,
   alsa-plugins,
   pipewire,
+  systemd,
   openssl,
   libxkbcommon,
   wayland,
@@ -50,6 +51,7 @@ let
       wayland
       libxkbcommon
       fontconfig
+      systemd
     ];
     ALSA_PLUGIN_DIR = symlinkJoin {
       name = "hex-alsa-plugins";
@@ -112,6 +114,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     wayland
     fontconfig
     freetype
+    systemd
     libx11
     libxcb
     libxcursor

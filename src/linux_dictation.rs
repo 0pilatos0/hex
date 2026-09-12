@@ -77,13 +77,18 @@ fn run_with_settings(
     };
     let hotkey_label = settings.dictation_hotkey.label();
     let hotkey = LinuxHotkeyMonitor::start(settings.dictation_hotkey, settings.double_tap_lock)?;
+    let wayland_modifiers = hotkey.wayland_modifiers();
     let indicator = LinuxIndicator::new();
     let (jobs, job_receiver) = mpsc::sync_channel::<Job>(2);
     let (result_sender, results) = mpsc::channel();
     let worker_stop = output.stop.clone();
     output.worker = Some(thread::spawn(move || {
         let mut transcriber = transcriber;
-        let mut paster = LinuxPaster::new(worker_stop.clone(), settings.paste_with_shift);
+        let mut paster = LinuxPaster::new(
+            worker_stop.clone(),
+            settings.paste_with_shift,
+            wayland_modifiers,
+        );
         while let Ok(job) = job_receiver.recv() {
             if worker_stop.load(Ordering::Acquire) {
                 break;

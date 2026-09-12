@@ -5,7 +5,7 @@ use std::os::fd::AsRawFd;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::SyncSender;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
@@ -173,10 +173,37 @@ struct HotkeyState {
     double_tap: bool,
     capture: Capture,
     last_release: Option<Instant>,
+    modifiers: WaylandModifierState,
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct WaylandModifierState(Arc<AtomicU8>);
+
+impl WaylandModifierState {
+    pub(crate) fn held(&self) -> bool {
+        self.0.load(Ordering::Acquire) != 0
+    }
+
+    fn publish(&self, modifiers: [bool; 4]) {
+        let bits = modifiers
+            .into_iter()
+            .enumerate()
+            .fold(0_u8, |bits, (index, held)| bits | (u8::from(held) << index));
+        self.0.store(bits, Ordering::Release);
+    }
 }
 
 impl HotkeyState {
+    #[cfg(test)]
     fn new(binding: &LinuxHotkey, double_tap: bool) -> Result<Self> {
+        Self::with_modifiers(binding, double_tap, WaylandModifierState::default())
+    }
+
+    fn with_modifiers(
+        binding: &LinuxHotkey,
+        double_tap: bool,
+        modifiers: WaylandModifierState,
+    ) -> Result<Self> {
         Ok(Self {
             pressed: Pressed::default(),
             trigger: key_code(&binding.key)?,
@@ -189,6 +216,7 @@ impl HotkeyState {
             double_tap,
             capture: Capture::Idle,
             last_release: None,
+            modifiers,
         })
     }
 
@@ -202,10 +230,12 @@ impl HotkeyState {
     fn update(&mut self, input: Input, now: Instant) -> Option<HotkeyEvent> {
         if matches!(input, Input::Connected(..) | Input::Disconnected(..)) {
             self.pressed.update(input);
+            self.modifiers.publish(self.pressed.modifiers());
             // Never infer presses or releases from a device snapshot or lost event stream.
             return self.cancel();
         }
         let (key, down) = self.pressed.update(input)?;
+        self.modifiers.publish(self.pressed.modifiers());
         if key == KeyCode::KEY_ESC && down {
             return self.cancel();
         }
@@ -336,6 +366,9 @@ struct Keyboard {
 
 struct Keyboards {
     devices: Vec<Keyboard>,
+    // Rejected event nodes are stable until udev replaces their inode. Remember
+    // them so the one-second hotplug scan never blocks input on repeated ioctls.
+    ignored: HashMap<PathBuf, (u64, u64)>,
     next_scan: Instant,
     clock: EventClock,
 }
@@ -347,6 +380,7 @@ impl Keyboards {
         }
         let mut keyboards = Self {
             devices: Vec::new(),
+            ignored: HashMap::new(),
             next_scan: Instant::now(),
             clock: EventClock::new()?,
         };
@@ -391,18 +425,32 @@ impl Keyboards {
             {
                 continue;
             }
+            let metadata = match fs::metadata(&path) {
+                Ok(metadata) => metadata,
+                Err(error) => {
+                    check_device_error(&path, error)?;
+                    continue;
+                }
+            };
+            use std::os::unix::fs::MetadataExt;
+            let identity = (metadata.dev(), metadata.ino());
+            if self.ignored.get(&path) == Some(&identity) {
+                continue;
+            }
             let opened = (|| -> std::io::Result<_> {
                 // Open read-only and nonblocking from the outset; never grab or inject input.
                 let file = OpenOptions::new()
                     .read(true)
                     .custom_flags(libc::O_NONBLOCK | libc::O_CLOEXEC)
                     .open(&path)?;
+                let is_mouse = is_mouse_input(&path);
                 let device = RawDevice::from_fd(file.into())?;
-                if !device.supported_keys().is_some_and(|keys| {
+                let supports_hotkeys = device.supported_keys().is_some_and(|keys| {
                     keys.contains(KeyCode::KEY_ESC)
                         || KEYS.iter().any(|(_, key)| keys.contains(*key))
                         || MODIFIERS.iter().flatten().any(|key| keys.contains(*key))
-                }) {
+                });
+                if !should_monitor_input(is_mouse, supports_hotkeys) {
                     return Ok(None);
                 }
                 let clock = libc::CLOCK_MONOTONIC;
@@ -422,10 +470,13 @@ impl Keyboards {
             })();
             match opened {
                 Ok(Some((device, pressed))) => {
+                    self.ignored.remove(&path);
                     connected.push(Input::Connected(path.clone(), pressed));
                     self.devices.push(Keyboard { path, device });
                 }
-                Ok(None) => {}
+                Ok(None) => {
+                    self.ignored.insert(path, identity);
+                }
                 Err(error) => check_device_error(&path, error)?,
             }
         }
@@ -487,8 +538,9 @@ pub(crate) fn run(
     binding: LinuxHotkey,
     double_tap_enabled: bool,
     started: Arc<AtomicBool>,
+    modifiers: WaylandModifierState,
 ) -> Result<()> {
-    let mut state = HotkeyState::new(&binding, double_tap_enabled)?;
+    let mut state = HotkeyState::with_modifiers(&binding, double_tap_enabled, modifiers)?;
     let (mut keyboards, initial) = Keyboards::open(&stop)?;
     for input in initial {
         state.update(input, Instant::now());
@@ -562,17 +614,25 @@ pub(crate) fn capture_wayland_binding(stop: &AtomicBool) -> Result<LinuxHotkey> 
     }
 }
 
-pub(crate) fn wayland_modifiers_held(stop: &AtomicBool) -> Result<bool> {
-    if !LinuxSession::detect().is_wayland() {
-        return Err(eyre!(
-            "raw keyboard modifier checks are only available on Wayland"
-        ));
-    }
-    // Use the same fail-closed permissions check as monitor startup, not a weaker paste-only view.
-    let (_keyboards, initial) = Keyboards::open(stop)?;
-    Ok(initial.iter().any(|input| {
-        matches!(input, Input::Connected(_, keys) if MODIFIERS.iter().flatten().any(|key| keys.contains(key)))
-    }))
+fn is_mouse_input(path: &Path) -> bool {
+    let Some(name) = path.file_name() else {
+        return false;
+    };
+    udev::Device::from_subsystem_sysname("input".to_string(), name.to_string_lossy().into_owned())
+        .ok()
+        .and_then(|device| {
+            device
+                .property_value("ID_INPUT_MOUSE")
+                .map(ToOwned::to_owned)
+        })
+        .is_some_and(|value| value == "1")
+}
+
+fn should_monitor_input(is_mouse: bool, supports_hotkeys: bool) -> bool {
+    // Logitech HID++ mouse receivers can advertise nearly the full keyboard
+    // bitmap. Udev still identifies the paired device as a mouse, which is a
+    // stronger signal than those synthetic capabilities.
+    !is_mouse && supports_hotkeys
 }
 
 #[cfg(test)]
@@ -655,6 +715,33 @@ mod tests {
         assert_eq!(key_code("RETURN").unwrap(), KeyCode::KEY_ENTER);
         assert!(key_code("f25").is_err());
         assert!(key_code("escape").is_err());
+    }
+
+    #[test]
+    fn mouse_nodes_are_not_monitored_even_when_the_receiver_advertises_keyboard_keys() {
+        assert!(!should_monitor_input(true, true));
+        assert!(!should_monitor_input(true, false));
+        assert!(should_monitor_input(false, true));
+        assert!(!should_monitor_input(false, false));
+    }
+
+    #[test]
+    fn live_modifier_snapshot_tracks_edges_and_device_loss() {
+        let modifiers = WaylandModifierState::default();
+        let mut state =
+            HotkeyState::with_modifiers(&LinuxHotkey::default(), false, modifiers.clone()).unwrap();
+        state.update(
+            Input::Connected("keyboard".into(), HashSet::new()),
+            Instant::now(),
+        );
+        assert!(!modifiers.held());
+        state.update(
+            Input::Key("keyboard".into(), KeyCode::KEY_LEFTALT, 1),
+            Instant::now(),
+        );
+        assert!(modifiers.held());
+        state.update(Input::Disconnected("keyboard".into()), Instant::now());
+        assert!(!modifiers.held());
     }
 
     #[test]

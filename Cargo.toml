@@ -76,5 +76,6 @@ gpui = { version = "0.2.2", default-features = false, features = ["font-kit", "w
 gtk = "0.18.2"
 gtk-layer-shell = { version = "0.8.2", features = ["v0_6"] }
 transcribe-cpp = { version = "=0.1.3", features = ["vulkan"] }
+udev = "0.9.3"
 x11-clipboard = "0.9.3"
 x11rb = { version = "0.13.2", features = ["xtest"] }

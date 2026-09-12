@@ -15,6 +15,7 @@ use x11rb::protocol::xtest;
 use x11rb::rust_connection::RustConnection;
 
 use crate::linux_input::Keymap;
+use crate::linux_input::WaylandModifierState;
 use crate::linux_session::LinuxSession;
 
 const XK_CONTROL_L: u32 = 0xffe3;
@@ -29,6 +30,7 @@ pub struct LinuxPaster {
     backend: Backend,
     stop: Arc<AtomicBool>,
     paste_with_shift: bool,
+    wayland_modifiers: Option<WaylandModifierState>,
 }
 
 enum Backend {
@@ -37,7 +39,11 @@ enum Backend {
 }
 
 impl LinuxPaster {
-    pub fn new(stop: Arc<AtomicBool>, paste_with_shift: bool) -> Result<Self> {
+    pub fn new(
+        stop: Arc<AtomicBool>,
+        paste_with_shift: bool,
+        wayland_modifiers: Option<WaylandModifierState>,
+    ) -> Result<Self> {
         let backend = match LinuxSession::detect() {
             LinuxSession::X11 => Backend::X11(Box::new(X11Paster::new()?)),
             LinuxSession::Wayland => Backend::Wayland,
@@ -46,6 +52,7 @@ impl LinuxPaster {
             backend,
             stop,
             paste_with_shift,
+            wayland_modifiers,
         })
     }
 
@@ -56,18 +63,17 @@ impl LinuxPaster {
         match &mut self.backend {
             Backend::X11(paster) => paster.paste(text, &self.stop, self.paste_with_shift)?,
             Backend::Wayland => {
-                wait_for_modifiers(&self.stop, || {
-                    crate::linux_input::wayland_modifiers_held(&self.stop)
+                let modifiers = self.wayland_modifiers.as_ref().ok_or_else(|| {
+                    eyre!("Wayland paste requires the active hotkey modifier state")
                 })?;
+                wait_for_modifiers(&self.stop, || Ok(modifiers.held()))?;
                 let mut copy = Command::new("wl-copy");
                 copy.args(["--type", "text/plain;charset=utf-8"]);
                 run_helper(copy, text.as_bytes(), &self.stop, HELPER_TIMEOUT)
                     .wrap_err("could not own the Wayland clipboard; install wl-clipboard and check compositor support")?;
                 // wl-copy's parent exits only after the selection is installed.
                 // Never read a pipe inherited by its clipboard-serving daemon.
-                wait_for_modifiers(&self.stop, || {
-                    crate::linux_input::wayland_modifiers_held(&self.stop)
-                })?;
+                wait_for_modifiers(&self.stop, || Ok(modifiers.held()))?;
                 let mut keys = Command::new("wtype");
                 keys.args(paste_keys(self.paste_with_shift));
                 run_helper(keys, &[], &self.stop, HELPER_TIMEOUT)

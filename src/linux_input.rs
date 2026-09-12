@@ -13,7 +13,7 @@ use x11rb::rust_connection::RustConnection;
 use crate::linux_session::LinuxSession;
 use crate::linux_settings::LinuxHotkey;
 
-pub(crate) use crate::linux_wayland_input::{capture_wayland_binding, wayland_modifiers_held};
+pub(crate) use crate::linux_wayland_input::{WaylandModifierState, capture_wayland_binding};
 
 const XK_SPACE: u32 = 0x20;
 const XK_ESCAPE: u32 = 0xff1b;
@@ -35,6 +35,7 @@ pub struct LinuxHotkeyMonitor {
     pub errors: Receiver<String>,
     stop: Arc<AtomicBool>,
     worker: Option<JoinHandle<()>>,
+    wayland_modifiers: Option<WaylandModifierState>,
 }
 
 impl LinuxHotkeyMonitor {
@@ -54,19 +55,28 @@ impl LinuxHotkeyMonitor {
         let started = Arc::new(AtomicBool::new(false));
         let worker_stop = stop.clone();
         let worker_started = started.clone();
+        let wayland_modifiers = session.is_wayland().then(WaylandModifierState::default);
+        let worker_modifiers = wayland_modifiers.clone();
         let worker = thread::spawn(move || {
-            let run_backend = match session {
-                LinuxSession::X11 => run,
-                LinuxSession::Wayland => crate::linux_wayland_input::run,
+            let result = match session {
+                LinuxSession::X11 => run(
+                    events_sender,
+                    worker_stop,
+                    ready_sender.clone(),
+                    binding,
+                    double_tap_enabled,
+                    worker_started.clone(),
+                ),
+                LinuxSession::Wayland => crate::linux_wayland_input::run(
+                    events_sender,
+                    worker_stop,
+                    ready_sender.clone(),
+                    binding,
+                    double_tap_enabled,
+                    worker_started.clone(),
+                    worker_modifiers.expect("Wayland modifier state exists"),
+                ),
             };
-            let result = run_backend(
-                events_sender,
-                worker_stop,
-                ready_sender.clone(),
-                binding,
-                double_tap_enabled,
-                worker_started.clone(),
-            );
             if let Err(error) = result {
                 let message = format!("{error:#}");
                 if worker_started.load(Ordering::Acquire) {
@@ -82,11 +92,16 @@ impl LinuxHotkeyMonitor {
             errors,
             stop,
             worker: Some(worker),
+            wayland_modifiers,
         };
         ready_receiver
             .recv_timeout(Duration::from_secs(2))
             .map_err(|_| eyre!("timed out registering the Linux dictation shortcut"))??;
         Ok(monitor)
+    }
+
+    pub(crate) fn wayland_modifiers(&self) -> Option<WaylandModifierState> {
+        self.wayland_modifiers.clone()
     }
 }
 
@@ -419,6 +434,7 @@ mod tests {
             errors,
             stop,
             worker: Some(worker),
+            wayland_modifiers: None,
         });
         assert!(stopped.load(Ordering::Acquire));
     }

@@ -175,9 +175,12 @@ application (see [#24](https://github.com/anomalyco/hex/issues/24)).
   observes keys without suppressing delivery to other applications. Reserve the
   chosen chord with a no-op compositor binding if it would otherwise reach the
   focused client. Modifier-only shortcuts are not supported.
-- Devices are rescanned once per second. Device loss or an input-stream gap
-  cancels an active recording rather than fabricating a release; a reconnected
-  keyboard can be used after the next scan.
+- Devices are rescanned once per second. Unchanged non-keyboard nodes are cached,
+  and udev mouse-classified nodes are excluded even when a receiver advertises
+  synthetic keyboard capabilities. Device loss or an input-stream gap cancels
+  an active recording rather than fabricating a release; a reconnected keyboard
+  can be used after the next scan. Paste reuses the monitor's live aggregate
+  modifier state instead of reopening every event node.
 
 ## Updates And Validation
 

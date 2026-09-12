@@ -482,6 +482,7 @@ Linux beta                               // not macOS feature parity
 ├── Recording sounds -> Shortcut press / capture stop / active cancellation
 ├── X11 -> No tray or recording HUD; service status and sounds remain available
 ├── Wayland -> evdev + compositor protocols; keys observed, not suppressed
+│   └── Mouse-classified nodes excluded; live modifiers reused for paste
 ├── Escape -> Cancel active capture, not newest accepted job
 ├── Microphone failure -> Listener exits, not macOS automatic recovery
 └── Paste -> Retain transcript clipboard, not restore previous contents
@@ -493,6 +494,15 @@ input-device access; physical reconnect and click-through still need native
 evidence. Its [smoke](../../scripts/test-wayland-paste.sh) explicitly isolates
 `HEX_APPLICATION_SUPPORT_DIR` and checks that Settings can exit without stopping
 the service.
+
+Wayland discovery checks every event node for the required broad read access,
+then excludes udev mouse-classified nodes even when Logitech-style receivers
+advertise synthetic keyboard keys. Stable rejected nodes are cached until their
+device identity changes. The active keyboard monitor publishes aggregate
+modifier state to paste, avoiding two full device scans after every dictation.
+`mouse_nodes_are_not_monitored_even_when_the_receiver_advertises_keyboard_keys`
+and `live_modifier_snapshot_tracks_edges_and_device_loss` cover those policies;
+the nested-compositor smoke remains the native insertion check.
 
 See the [Linux guide](../linux.md), [linux_app.rs](../../src/linux_app.rs),
 [linux_wayland_input.rs](../../src/linux_wayland_input.rs), and

@@ -199,32 +199,35 @@ fn run_with_shell_preview(
     if dictation_preview {
         let preview_sender = indicator_sender.clone();
         thread::spawn(move || {
-            preview_sender.send(DictationIndicatorEvent::Started);
-            thread::sleep(Duration::from_millis(450));
-            let started = Instant::now();
-            while started.elapsed() < Duration::from_secs(5) {
-                let wave = (started.elapsed().as_secs_f32() * 5.0).sin() * 0.5 + 0.5;
-                preview_sender.send(DictationIndicatorEvent::Meter {
-                    average: 0.025 + wave * 0.09,
-                    peak: 0.15 + wave * 0.55,
-                });
-                thread::sleep(Duration::from_millis(20));
+            loop {
+                preview_sender.send(DictationIndicatorEvent::Started);
+                thread::sleep(Duration::from_millis(450));
+                let started = Instant::now();
+                while started.elapsed() < Duration::from_secs(5) {
+                    let wave = (started.elapsed().as_secs_f32() * 5.0).sin() * 0.5 + 0.5;
+                    preview_sender.send(DictationIndicatorEvent::Meter {
+                        average: 0.025 + wave * 0.09,
+                        peak: 0.15 + wave * 0.55,
+                    });
+                    thread::sleep(Duration::from_millis(20));
+                }
+                preview_sender.send(DictationIndicatorEvent::Submitted { job_id: 0 });
+                preview_sender.send(DictationIndicatorEvent::Transcribing { job_id: 0 });
+                thread::sleep(Duration::from_millis(700));
+                preview_sender.send(DictationIndicatorEvent::Started);
+                thread::sleep(Duration::from_millis(500));
+                preview_sender.send(DictationIndicatorEvent::Processing { job_id: 0 });
+                thread::sleep(Duration::from_millis(800));
+                preview_sender.send(DictationIndicatorEvent::Submitted { job_id: 1 });
+                preview_sender.send(DictationIndicatorEvent::Transcribing { job_id: 1 });
+                thread::sleep(Duration::from_millis(700));
+                preview_sender.send(DictationIndicatorEvent::JobCompleted { job_id: 0 });
+                thread::sleep(Duration::from_millis(700));
+                preview_sender.send(DictationIndicatorEvent::Processing { job_id: 1 });
+                thread::sleep(Duration::from_secs(1));
+                preview_sender.send(DictationIndicatorEvent::JobCompleted { job_id: 1 });
+                thread::sleep(Duration::from_secs(1));
             }
-            preview_sender.send(DictationIndicatorEvent::Submitted { job_id: 0 });
-            preview_sender.send(DictationIndicatorEvent::Transcribing { job_id: 0 });
-            thread::sleep(Duration::from_millis(700));
-            preview_sender.send(DictationIndicatorEvent::Started);
-            thread::sleep(Duration::from_millis(500));
-            preview_sender.send(DictationIndicatorEvent::Processing { job_id: 0 });
-            thread::sleep(Duration::from_millis(800));
-            preview_sender.send(DictationIndicatorEvent::Submitted { job_id: 1 });
-            preview_sender.send(DictationIndicatorEvent::Transcribing { job_id: 1 });
-            thread::sleep(Duration::from_millis(700));
-            preview_sender.send(DictationIndicatorEvent::JobCompleted { job_id: 0 });
-            thread::sleep(Duration::from_millis(700));
-            preview_sender.send(DictationIndicatorEvent::Processing { job_id: 1 });
-            thread::sleep(Duration::from_secs(1));
-            preview_sender.send(DictationIndicatorEvent::JobCompleted { job_id: 1 });
         });
     }
     let controller_worker =

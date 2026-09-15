@@ -17,7 +17,7 @@ use metal::{
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{
-    NSBackingStoreType, NSColor, NSEvent, NSScreen, NSStatusWindowLevel, NSView, NSWindow,
+    NSBackingStoreType, NSColor, NSEvent, NSPanel, NSScreen, NSStatusWindowLevel, NSView,
     NSWindowCollectionBehavior, NSWindowStyleMask,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize};
@@ -165,7 +165,7 @@ impl DictationIndicatorUi {
 }
 
 struct MetalIndicator {
-    window: Retained<NSWindow>,
+    window: Retained<NSPanel>,
     renderer: Arc<SharedRenderer>,
     display_link: CVDisplayLink,
     display_link_context: *const SharedRenderer,
@@ -180,18 +180,16 @@ impl MetalIndicator {
             NSPoint::new(0.0, 0.0),
             NSSize::new(f64::from(WINDOW_WIDTH), f64::from(WINDOW_HEIGHT)),
         );
-        let window = unsafe {
-            NSWindow::initWithContentRect_styleMask_backing_defer(
-                mtm.alloc(),
-                frame,
-                NSWindowStyleMask::Borderless
-                    | NSWindowStyleMask::UtilityWindow
-                    | NSWindowStyleMask::NonactivatingPanel
-                    | NSWindowStyleMask::FullSizeContentView,
-                NSBackingStoreType::Buffered,
-                false,
-            )
-        };
+        let window = NSPanel::initWithContentRect_styleMask_backing_defer(
+            mtm.alloc(),
+            frame,
+            NSWindowStyleMask::Borderless
+                | NSWindowStyleMask::UtilityWindow
+                | NSWindowStyleMask::NonactivatingPanel
+                | NSWindowStyleMask::FullSizeContentView,
+            NSBackingStoreType::Buffered,
+            false,
+        );
         let view = NSView::initWithFrame(mtm.alloc(), frame);
         view.setWantsLayer(true);
         let metal_layer = renderer.layer();
@@ -208,6 +206,7 @@ impl MetalIndicator {
         window.setLevel(NSStatusWindowLevel);
         window.setCollectionBehavior(
             NSWindowCollectionBehavior::CanJoinAllSpaces
+                | NSWindowCollectionBehavior::CanJoinAllApplications
                 | NSWindowCollectionBehavior::FullScreenAuxiliary
                 | NSWindowCollectionBehavior::Stationary
                 | NSWindowCollectionBehavior::IgnoresCycle,

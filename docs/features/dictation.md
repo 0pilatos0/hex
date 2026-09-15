@@ -226,8 +226,30 @@ control; see [Linux feedback](README.md#other-platforms-and-consumers) for its
 entry points, timing, defaults, and verification limits.
 
 Check: [capture-preview.sh](../../scripts/capture-preview.sh), `dictation-hud`
-preview. This renders a real window with deterministic state; it does not prove
-that actual capture caused that state.
+preview. It repeats the recording/processing sequence until the preview exits,
+so fullscreen and Space transitions can be checked without a ten-second deadline.
+This renders a real window with deterministic state; it does not prove that
+actual capture caused that state.
+
+The macOS HUD is a click-through, nonactivating `NSPanel` with
+`CanJoinAllSpaces`, `CanJoinAllApplications`, and `FullScreenAuxiliary` collection
+behaviors. The cross-application flag explicitly allows the overlay to join
+another application's fullscreen Space (#75); panel style flags on an ordinary
+`NSWindow` were not sufficient.
+
+**Observed September 14, 2026:** the unmodified HUD was not found on screen over
+a native fullscreen TextEdit fixture. Changing only the window class to
+`NSPanel` did not produce a visible HUD in the initial check. The candidate with
+`CanJoinAllApplications` and the repeating fixture visibly showed the red HUD
+over fullscreen TextEdit, captured through Cua Driver. This was a debug preview
+with no microphone capture, not a signed installed-app or multi-display test.
+Kit independently confirmed the repeating candidate was visible in fullscreen.
+
+**Combined verification September 14, 2026:** 468 Rust tests passed with ten
+native/opt-in checks ignored, plus all twelve keyboard-layout child scenarios
+in debug and release. Strict all-target/all-feature Clippy, 46 command-SDK tests,
+and the command-SDK build passed. The native preview also built successfully.
+No app update has been published for these source fixes.
 
 ## Gaps And Constraints
 

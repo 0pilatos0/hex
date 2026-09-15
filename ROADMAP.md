@@ -116,6 +116,26 @@ press-again-to-finish option, especially for key chords and standalone function
 keys. Keep it distinct from hold-to-dictate and double-tap-only activation;
 do not add new shortcut modes to the regression release.
 
+Track the remaining shortcut requests explicitly:
+
+- [#82](https://github.com/anomalyco/hex/issues/82): menu-bar Pause/Resume must
+  suspend capture shortcuts and command activation, cancel only active capture,
+  retain accepted output, and require key release before resuming. Test event-tap
+  suppression as well as the recognition state. App exclusions are a later slice.
+- [#77](https://github.com/anomalyco/hex/issues/77): single-tap hands-free
+  activation needs its own hold/lock, chord-discard, and cold-microphone checks.
+- [#67](https://github.com/anomalyco/hex/issues/67): standalone keypad/character
+  bindings need explicit key-consumption, cancellation, and rebinding semantics.
+- [#37](https://github.com/anomalyco/hex/issues/37): the original Voice Action
+  conflict is resolved; remaining Caps Lock-to-Control behavior needs physical
+  remapping evidence. Side-less flags and actual Right Control flags are distinct.
+
+On-demand rewrite [PR #63](https://github.com/anomalyco/hex/pull/63) remains under
+review: publish the shared last transcript only after successful paste, require
+explicit shortcut opt-in, prove generation while automatic processing is off at
+the generation boundary, and reuse the isolated native keyboard test harness.
+Do not pre-publish an uncommitted transcript and attempt to repair it afterward.
+
 The microphone and dictation model remain warm by default. The shipped
 `Release when idle` microphone option opens the device on shortcut press, removes
 pre-roll, and adds first-capture latency. It is mutually exclusive with Commands

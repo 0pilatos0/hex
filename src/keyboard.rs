@@ -134,7 +134,17 @@ pub fn key_code_for(character: char) -> Result<u16> {
     });
     // SAFETY: TIS copy functions return a retained source.
     unsafe { CFRelease(source) };
-    result.ok_or_else(|| eyre!("current keyboard layout has no key for {character:?}"))
+    if let Some(key_code) = result {
+        return Ok(key_code);
+    }
+    // Non-Latin layouts produce no ASCII letters with an empty modifier state;
+    // resolve those against the ASCII-capable layout like AppKit does.
+    if let Some(key_code) = ascii_capable_key_code(character) {
+        return Ok(key_code);
+    }
+    Err(eyre!(
+        "current keyboard layout has no key for {character:?}"
+    ))
 }
 
 /// GUI startup must build this snapshot on the main thread before starting workers.
@@ -163,8 +173,62 @@ pub fn initialize_layout() -> Result<()> {
         Some((character, key_code))
     }));
     unsafe { CFRelease(source) };
+    // Non-Latin layouts (Russian, Hebrew, …) produce no ASCII letters with an
+    // empty modifier state, so shortcuts like Cmd+V would miss. Appkit resolves
+    // those against the ASCII-capable layout; mirror that here by filling the
+    // missing letters from the ASCII-capable input source.
+    let mut codes = codes;
+    if ('a'..='z').any(|character| !codes.contains_key(&character))
+        && let Some(ascii_codes) = ascii_capable_key_codes()
+    {
+        fill_missing_ascii_letters(&mut codes, ascii_codes);
+    }
     let _ = KEY_CODES.set(codes);
     Ok(())
+}
+
+fn ascii_capable_key_codes() -> Option<HashMap<char, u16>> {
+    // Called only while LAYOUT_ACCESS is held, before the GUI snapshot is published.
+    // SAFETY: TIS copy functions return a retained input source, released below.
+    let source = unsafe { TISCopyCurrentASCIICapableKeyboardLayoutInputSource() };
+    if source.is_null() {
+        return None;
+    }
+    let layout_data =
+        unsafe { TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) };
+    if layout_data.is_null() {
+        unsafe { CFRelease(source) };
+        return None;
+    }
+    let layout = unsafe { CFDataGetBytePtr(layout_data) };
+    let codes = collect_key_codes((0..128).filter_map(|key_code| {
+        let translated = translate(layout, key_code)?;
+        let character = translated.chars().next()?.to_ascii_lowercase();
+        character
+            .is_ascii_alphabetic()
+            .then_some((character, key_code))
+    }));
+    unsafe { CFRelease(source) };
+    Some(codes)
+}
+
+fn fill_missing_ascii_letters(codes: &mut HashMap<char, u16>, fallback: HashMap<char, u16>) {
+    for (character, key_code) in fallback {
+        if character.is_ascii_alphabetic() {
+            codes.entry(character).or_insert(key_code);
+        }
+    }
+}
+
+/// Resolves a character against the ASCII-capable layout for non-Latin
+/// active layouts, mirroring how AppKit resolves shortcuts such as Cmd+V.
+fn ascii_capable_key_code(character: char) -> Option<u16> {
+    if !character.is_ascii_alphabetic() {
+        return None;
+    }
+    ascii_capable_key_codes()?
+        .get(&character.to_ascii_lowercase())
+        .copied()
 }
 
 fn collect_key_codes(entries: impl IntoIterator<Item = (char, u16)>) -> HashMap<char, u16> {
@@ -334,6 +398,22 @@ fn translate(layout: *const u8, key_code: u16) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn non_latin_snapshot_gets_shortcut_letters_without_replacing_active_keys() {
+        let mut codes = collect_key_codes([('ж', 41), ('v', 12)]);
+        let fallback = collect_key_codes([('v', 9), ('c', 8), ('c', 88), ('1', 18)]);
+        fill_missing_ascii_letters(&mut codes, fallback);
+        assert_eq!(codes.get(&'ж'), Some(&41));
+        assert_eq!(codes.get(&'v'), Some(&12));
+        assert_eq!(codes.get(&'c'), Some(&8));
+        assert!(!codes.contains_key(&'1'));
+
+        let mut non_latin = collect_key_codes([('מ', 9)]);
+        fill_missing_ascii_letters(&mut non_latin, collect_key_codes([('v', 9)]));
+        assert_eq!(non_latin.get(&'v'), Some(&9));
+        assert_eq!(non_latin.get(&'מ'), Some(&9));
+    }
 
     #[test]
     fn layout_cache_prefers_the_first_key_that_produces_a_character() {

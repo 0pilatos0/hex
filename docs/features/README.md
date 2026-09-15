@@ -276,6 +276,15 @@ Built-in text transformations run natively. Custom transformations require the
 managed Bun workspace, not Commands enabled. OpenCode rewriting sends documented
 context to the configured provider; speech transcription stays local.
 
+The built-ins are Lowercase, SpongeBob case, and No trailing punctuation. The
+last removes only the final contiguous run of sentence marks (including
+full-width marks), preserving internal punctuation, trailing whitespace, and
+closing quotes/brackets. Punctuation inside a final closing quote is preserved.
+Select it after Lowercase for lowercase messages without the final period.
+The `no_trailing_punctuation_*` and `built_in_transformations_chain_in_selected_order`
+tests in [personal_commands.rs](../../src/personal_commands.rs) cover text behavior
+and native dispatch, not a live custom-host or target-app paste.
+
 Selection and stage checks start in
 [dictation_processor.rs](../../src/dictation_processor.rs),
 [text_replacements.rs](../../src/text_replacements.rs), and

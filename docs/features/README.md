@@ -501,6 +501,13 @@ selected legacy Ctrl-Shift-V while the GTK target expects Ctrl-V. The fixture no
 sets `paste_with_shift:false` explicitly. The failed target check remains a failed
 run, not native paste proof; see the subsequent CI result for verification.
 
+**Subsequent CI passed:** [run 34927405408](https://github.com/anomalyco/hex/actions/runs/34927405408)
+on `cd3a8d9` passed both Ubuntu (4m15s) and Nix (39m58s). This includes the
+corrected virtual-microphone capture/inference/paste fixture, X11 grabs, Wayland
+paste into GTK, signed-installer tamper rejection, service IPC/lifecycle, strict
+Linux Clippy, and the installed Nix package build and tests. These isolated checks
+do not establish physical Linux device or compositor compatibility.
+
 [Recovery](recovery.md) separates supported recovery from known defects.
 [login_item.rs](../../src/login_item.rs), [status_item.rs](../../src/status_item.rs),
 [sparkle.rs](../../src/sparkle.rs), the

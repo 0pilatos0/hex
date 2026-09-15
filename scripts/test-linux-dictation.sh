@@ -53,7 +53,9 @@ export GDK_BACKEND=x11 GGML_VK_VISIBLE_DEVICES=""
 unset WAYLAND_DISPLAY VK_ICD_FILENAMES
 mkdir -m 700 "$HOME" "$XDG_RUNTIME_DIR" "$HEX_APPLICATION_SUPPORT_DIR"
 mkdir "$HEX_APPLICATION_SUPPORT_DIR/models"
-printf '{"sound_effect_volume":0}\n' > "$HEX_APPLICATION_SUPPORT_DIR/linux-settings.json"
+# This GTK target uses Ctrl-V. Omitting the preference from an existing settings
+# file deliberately selects the legacy terminal Ctrl-Shift-V behavior.
+printf '{"sound_effect_volume":0,"paste_with_shift":false}\n' > "$HEX_APPLICATION_SUPPORT_DIR/linux-settings.json"
 ln -s "$model" "$HEX_APPLICATION_SUPPORT_DIR/models/$(basename "$model")"
 printf 'pcm.!default { type pulse server "%s" }\n' "$PULSE_SERVER" > "$HOME/.asoundrc"
 pulseaudio -n --daemonize=no --use-pid-file=no --exit-idle-time=-1 \

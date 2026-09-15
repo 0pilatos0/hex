@@ -119,6 +119,8 @@ do not add new shortcut modes to the regression release.
 Track the remaining shortcut requests explicitly:
 
 - [#82](https://github.com/anomalyco/hex/issues/82): menu-bar Pause/Resume must
+  remain deferred for now; quitting HEX is sufficient for the current scope.
+  If revisited, it must
   suspend capture shortcuts and command activation, cancel only active capture,
   retain accepted output, and require key release before resuming. Test event-tap
   suppression as well as the recognition state. App exclusions are a later slice.

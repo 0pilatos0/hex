@@ -5,7 +5,7 @@ This maps existing behavior. [ROADMAP.md](../../ROADMAP.md) owns future work;
 [AGENTS.md](../../AGENTS.md) owns implementation invariants.
 
 Initial source baseline: September 1, 2026, `9e9da53aa9ed`. Public macOS release:
-[2.1.17](../releases/2.1.17.md), with custom-domain downloads, a GitHub DMG mirror,
+[2.1.18](../releases/2.1.18.md), with custom-domain downloads, a GitHub DMG mirror,
 and model-download recovery guidance. The initial map was source-only. Listed checks are
 locators unless an executed result is explicitly recorded, as in the
 [keyboard-layout verification](recovery.md#keyboard-layout-resolution).
@@ -473,6 +473,33 @@ package checks. These CI checks remain separate from native macOS and physical
 Linux verification.
 The [performance investigation](../research/performance-2026-09-04.md) changed
 no runtime defaults.
+
+**Published September 14, 2026:** [2.1.18](../releases/2.1.18.md), release commit
+`62b055e`, build `20118`. The optimized suite passed 468 Rust tests and all twelve
+keyboard-layout child scenarios, with ten opt-in tests skipped. Strict release
+Clippy and app-identity fixtures passed. The signed bundle's isolated HUD preview
+was visible over native fullscreen TextEdit; no microphone capture or installed
+app replacement was performed.
+
+Apple accepted the app and DMG for notarization; both were stapled. Gatekeeper
+accepted the candidate. DMG, Sparkle ZIP, and tested bundle matched across 208
+no-follow entries (bytes, modes, and symlink targets). Public DMG, ZIP, latest-DMG,
+and GitHub mirror bytes matched the prepared artifacts. The public feed matches
+the prepared feed and leads with `20118`; its ZIP signature verified against the
+bundled public key. Publication resumed at the feed upload after a server restart,
+following fresh verification of all uploaded artifacts.
+
+Both production marketing sites show the versioned 2.1.18 links. Their GitHub
+download buttons completed downloads in headless Chromium with the primary host
+blocked. The Homebrew cask passed style, strict online audit, and checksum fetch.
+The separate `.com` site's lint, typecheck, and build passed; its dependency audit
+reported four existing development-tool advisories, tracked separately.
+
+The Ubuntu CI run passed Rust tests, isolated X11 grabs, and native Wayland paste,
+then exposed a virtual-microphone fixture mismatch: its partial saved settings
+selected legacy Ctrl-Shift-V while the GTK target expects Ctrl-V. The fixture now
+sets `paste_with_shift:false` explicitly. The failed target check remains a failed
+run, not native paste proof; see the subsequent CI result for verification.
 
 [Recovery](recovery.md) separates supported recovery from known defects.
 [login_item.rs](../../src/login_item.rs), [status_item.rs](../../src/status_item.rs),

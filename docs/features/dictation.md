@@ -249,7 +249,15 @@ Kit independently confirmed the repeating candidate was visible in fullscreen.
 native/opt-in checks ignored, plus all twelve keyboard-layout child scenarios
 in debug and release. Strict all-target/all-feature Clippy, 46 command-SDK tests,
 and the command-SDK build passed. The native preview also built successfully.
-No app update has been published for these source fixes.
+These checks preceded the app release.
+
+**2.1.18 candidate verification September 14, 2026:** the optimized suite passed
+all 468 Rust tests and twelve keyboard-layout child scenarios; ten opt-in checks
+were skipped. Strict release all-target/all-feature Clippy and app-identity
+fixtures passed. The signed, notarized bundle's isolated HUD preview was visibly
+present over native fullscreen TextEdit. This exercises the packaged renderer,
+not microphone capture or an installed-app update. The preview and disposable
+TextEdit process were stopped afterward.
 
 ## Gaps And Constraints
 

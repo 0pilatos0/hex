@@ -186,7 +186,40 @@ Record -> Release -> Transcribing/processing/paste -> Finished // dictate.feedba
   HUD + tones distinguish capture from pending work          // never take focus
   Pending processing/paste -> Still unfinished, not recording
   Feedback volume = 0 -> No tones
+     -> Playback worker releases output on its next 250 ms observation
+     -> Volume enabled again -> Reopen on playback worker, never capture/UI
+  Cold audio stack exceeds preload admission -> Warn once; recognition continues
+     -> Loader keeps running; later tones play once the output opens
 ```
+
+Feedback admission is advisory on every platform: a cold audio stack can exceed
+the two-second preload timeout, so the recognition worker logs a warning and
+continues rather than stopping. The loader thread keeps running and registers
+the player when the default output finally opens, restoring tones for the rest
+of the session. Linux already logged and continued; the macOS worker now
+matches that behavior instead of stopping desktop recognition.
+
+The playback worker skips output initialization when sounds are Off. A live
+volume change to Off drops the output stream; a device open already in progress
+must return before the worker can observe that change. Output-open failures
+retry at most once per two seconds. Bundled samples remain decoded in memory.
+`sound_off_releases_output_and_reenable_reopens_it` checks actual ownership/drop
+with a controlled sink; `failed_output_initialization_retries_with_a_bounded_backoff`
+checks failure-to-success recovery without an audio device.
+`timed_out_admission_still_publishes_a_usable_player` checks the production
+publication path after the admission receiver has gone away. These checks do
+not measure the reporter's CoreAudio CPU usage or establish audible playback.
+
+**Contributor-reported September 10, 2026 (PR #84):** a locally built `/Applications/Hex.app`
+(approximating 2.1.16 plus this change) was started right after a restart where
+the stock build had stopped its desktop recognition worker with
+`timed out preloading feedback audio`. The patched build started on the first
+attempt: the worker reached `dictation listener started` and
+`resolved paste key … paste_key_code=9`, and held-Option dictations pasted into
+the focused app. The late-registration path (loader still running when the
+admission wait times out) is implemented, but its end-to-end tone recovery has
+not yet been observed on hardware;
+it is expected behavior, not executed evidence.
 
 Linux now uses the same recording sounds with its own persisted Sound volume
 control; see [Linux feedback](README.md#other-platforms-and-consumers) for its

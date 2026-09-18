@@ -5,7 +5,7 @@ This maps existing behavior. [ROADMAP.md](../../ROADMAP.md) owns future work;
 [AGENTS.md](../../AGENTS.md) owns implementation invariants.
 
 Initial source baseline: September 1, 2026, `9e9da53aa9ed`. Public macOS release:
-[2.1.18](../releases/2.1.18.md), with custom-domain downloads, a GitHub DMG mirror,
+[2.1.19](../releases/2.1.19.md), with custom-domain downloads, a GitHub DMG mirror,
 and model-download recovery guidance. The initial map was source-only. Listed checks are
 locators unless an executed result is explicitly recorded, as in the
 [keyboard-layout verification](recovery.md#keyboard-layout-resolution).
@@ -507,6 +507,21 @@ corrected virtual-microphone capture/inference/paste fixture, X11 grabs, Wayland
 paste into GTK, signed-installer tamper rejection, service IPC/lifecycle, strict
 Linux Clippy, and the installed Nix package build and tests. These isolated checks
 do not establish physical Linux device or compositor compatibility.
+
+**Published September 18, 2026:** [2.1.19](../releases/2.1.19.md), release commit
+`983c71c`, build `20119`. The debug and optimized suites each passed 468 Rust
+tests plus all twelve keyboard-layout child scenarios, with ten opt-in tests
+skipped per profile. Strict all-target/all-feature Clippy, formatting, app
+identity guards, and the release build passed.
+
+Apple accepted the app and DMG for notarization; both were stapled, and
+Gatekeeper accepted the DMG. The public versioned DMG, latest-DMG pointer, and
+GitHub mirror match the prepared SHA-256. The feed leads with build `20119`, and
+the published ZIP is the signed prepared update. The isolated memory probe in
+[Dictation](dictation.md#ongoing-jobs-and-output) establishes scratch reclamation
+with the similarly sized Unified English model; it is not a Parakeet v3 or
+installed-app memory measurement. No installed app replacement, physical
+dictation, Sparkle installation, or Linux binary release was performed.
 
 [Recovery](recovery.md) separates supported recovery from known defects.
 [login_item.rs](../../src/login_item.rs), [status_item.rs](../../src/status_item.rs),

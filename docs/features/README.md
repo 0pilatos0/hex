@@ -523,6 +523,14 @@ with the similarly sized Unified English model; it is not a Parakeet v3 or
 installed-app memory measurement. No installed app replacement, physical
 dictation, Sparkle installation, or Linux binary release was performed.
 
+Both production marketing sites and their Vercel aliases show the versioned
+2.1.19 primary and GitHub downloads. The `.dev` site build and Cloudflare deploy
+passed. The `.com` site's lint, typecheck, build, and Vercel deployment passed;
+its dependency audit reported the same four development-tool advisories already
+present in 2.1.18. The Homebrew cask passed Ruby syntax, style, strict online
+audit apart from the explicit existing token collision, checksum fetch, and
+livecheck (`2.1.19 ==> 2.1.19`). No cask installation replaced the live app.
+
 [Recovery](recovery.md) separates supported recovery from known defects.
 [login_item.rs](../../src/login_item.rs), [status_item.rs](../../src/status_item.rs),
 [sparkle.rs](../../src/sparkle.rs), the

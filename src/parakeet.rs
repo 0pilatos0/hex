@@ -9,8 +9,8 @@ use std::time::Instant;
 
 use color_eyre::eyre::{Result, WrapErr, eyre};
 use transcribe_cpp::{
-    Backend, ExtSlot, Model, ModelOptions, RunExtension, RunOptions, Session, TimestampKind,
-    Transcript, WhisperRunOptions, sys::TRANSCRIBE_EXT_KIND_WHISPER_RUN,
+    Backend, ExtSlot, Model, ModelOptions, RunExtension, RunOptions, TimestampKind, Transcript,
+    WhisperRunOptions, sys::TRANSCRIBE_EXT_KIND_WHISPER_RUN,
 };
 
 use crate::context::ContextSnapshot;
@@ -22,13 +22,13 @@ use crate::paste::{PasteMode, Paster};
 use crate::suppression::InputActivity;
 #[cfg(test)]
 use crate::text_replacements::ReplacementSet;
-use crate::transcription::{Transcriber, WarmTranscriber};
+use crate::transcription::{OfflineGgufSession, Transcriber, WarmTranscriber};
 use crate::transcription_models::{
     TranscriptionModelId, TranscriptionSelection, model_path, validate,
 };
 
 pub struct Parakeet {
-    session: Session,
+    session: OfflineGgufSession,
     options: RunOptions,
     name: String,
     selection: Option<TranscriptionSelection>,
@@ -1059,7 +1059,7 @@ impl Parakeet {
                 ));
             }
         }
-        let session = model.session()?;
+        let session = OfflineGgufSession::new(model)?;
         let language = selection
             .zip(definition)
             .and_then(|(selection, definition)| {

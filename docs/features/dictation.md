@@ -140,6 +140,36 @@ physical capture/paste or Linux runtime proof. Chunk boundaries can still affect
 individual words; this is not a claim of perfect recognition or silence handling.
 
 ```ts
+Listening idle                            // dictate.model-memory
+├── Keep the selected model weights warm // avoids loading on each dictation
+└── Completed offline inference
+    -> Release input-sized GGML/Metal compute scratch
+    -> Keep only reusable model/session state
+```
+
+The selected GGUF remains resident by design; Parakeet v3's pinned Q8 artifact is
+739,508,576 bytes before runtime metadata and decoder state. Input-sized scheduler
+scratch must not remain at its high-water mark after a dictation. The pinned
+`transcribe-cpp` 0.1.3 runtime owns that scratch for the session lifetime, so HEX
+rotates the lightweight session after every offline run while retaining the loaded
+model. A later dictation recreates its session without reloading the weights.
+
+**Observed September 18, 2026, isolated Metal probe on M2 Max:** with the similarly
+sized Parakeet Unified English model, `transcribe-cpp` 0.1.3 grew from a 792 MB loaded
+footprint to 1,195 MB after a 45-second input and retained 1,195 MB after another
+short run. The same 0.1.3 runtime with HEX's session rotation measured 792 MB loaded,
+801 MB after the long input, and 802 MB after the following short run. The probe used
+generated silence and no live microphone, UI, Commands model, or paste. This
+establishes the backend scratch cause and reclamation on that model and machine, not
+Parakeet v3's exact whole-app footprint on the reporter's Mac. Activity Monitor can
+include additional app and optional Commands-model memory.
+
+The ignored `dictation_protocol_audio` native fixture was also run with the selected
+Unified English model. Before and after session rotation it reached the same existing
+second-pass mismatch (`say stop` decoded as `say stay`) on the question fixture, so
+that run is not claimed as a passing transcription regression check.
+
+```ts
 Finish
   ├── Capacity available -> Accepted job -> Local transcription -> Mode processing
   │    -> Paste successful nonempty output once, at current focus

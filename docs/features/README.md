@@ -241,6 +241,12 @@ Settings                                 // settings
 ├── While dictating -> Mute / Pause media / Do nothing
 │   └── Intentional capture only, not ordinary shortcut chords
 └── Sound volume -> Immediate feedback setting; zero suppresses tones
+
+Intentional recording                    // recording.environment
+├── Acquire native macOS no-idle-sleep assertion
+│   └── Failure -> Warn and continue recording
+└── Finish/cancel -> Release the assertion
+    // no caffeinate child process or executable-policy dialog
 ```
 
 Successful settings saves persist and project changes at safe runtime boundaries.
@@ -248,7 +254,10 @@ Persistence, conflict, and ownership checks live in
 [app_settings.rs](../../src/app_settings.rs),
 [recording_environment.rs](../../src/recording_environment.rs), and
 [audio.rs](../../src/audio.rs). Settings previews do not prove physical device
-switching or native mute support; muting is best-effort, not universal.
+switching or native mute support; muting is best-effort, not universal. The
+recording-environment ownership checks cover overlapping acquisition and release,
+not a managed-device policy or native power assertion. An opt-in native assertion
+smoke exercises IOKit without starting microphone capture.
 
 **Easy to misread:** an open microphone is not an active recording. Sleeping
 Commands still needs open input; it is not Release when idle.

@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use std::mem::size_of;
 use std::path::Path;
-use std::process::{Child, Command};
+use std::process::Command;
 use std::ptr::NonNull;
 use std::sync::mpsc::{self, Sender};
 use std::thread;
@@ -11,10 +11,12 @@ use objc2_core_audio::{
     kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyElementMain,
     kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyScopeOutput, kAudioObjectSystemObject,
 };
+use objc2_core_foundation::CFString;
 
 use crate::app_settings::{self, RecordingAudioBehavior};
 
 const VIRTUAL_MAIN_VOLUME: u32 = u32::from_be_bytes(*b"vmvc");
+const POWER_ASSERTION_LEVEL_ON: u32 = 255;
 const PAUSE_MUSIC: &str = r#"
 try
   if application "Music" is running then
@@ -146,25 +148,58 @@ pub fn prevent_sleep() -> Option<PreventSleep> {
 }
 
 pub struct PreventSleep {
-    process: Child,
+    assertion_id: u32,
 }
 
 impl PreventSleep {
     fn start() -> std::io::Result<Self> {
-        Ok(Self {
-            process: Command::new("/usr/bin/caffeinate")
-                .args(["-i", "-w"])
-                .arg(std::process::id().to_string())
-                .spawn()?,
-        })
+        let assertion_type = CFString::from_static_str("NoIdleSleepAssertion");
+        let assertion_name = CFString::from_static_str("HEX intentional recording");
+        let mut assertion_id = 0;
+        // SAFETY: Both Core Foundation strings remain alive for the call and
+        // assertion_id points to writable, correctly sized storage. IOKit
+        // retains the assertion independently until IOPMAssertionRelease.
+        let status = unsafe {
+            IOPMAssertionCreateWithName(
+                (&*assertion_type as *const CFString).cast(),
+                POWER_ASSERTION_LEVEL_ON,
+                (&*assertion_name as *const CFString).cast(),
+                &mut assertion_id,
+            )
+        };
+        if status != 0 {
+            return Err(std::io::Error::other(format!(
+                "IOPMAssertionCreateWithName failed with IOReturn 0x{:08x}",
+                status as u32
+            )));
+        }
+        Ok(Self { assertion_id })
     }
 }
 
 impl Drop for PreventSleep {
     fn drop(&mut self) {
-        let _ = self.process.kill();
-        let _ = self.process.wait();
+        // SAFETY: assertion_id was returned by a successful create call and
+        // this guard is its sole owner, so release occurs exactly once.
+        let status = unsafe { IOPMAssertionRelease(self.assertion_id) };
+        if status != 0 {
+            tracing::warn!(
+                status = format_args!("0x{:08x}", status as u32),
+                "could not release idle-sleep assertion"
+            );
+        }
     }
+}
+
+#[link(name = "IOKit", kind = "framework")]
+unsafe extern "C" {
+    fn IOPMAssertionCreateWithName(
+        assertion_type: *const c_void,
+        assertion_level: u32,
+        assertion_name: *const c_void,
+        assertion_id: *mut u32,
+    ) -> i32;
+    fn IOPMAssertionRelease(assertion_id: u32) -> i32;
 }
 
 enum AudioBehaviorGuard {
@@ -394,6 +429,12 @@ mod tests {
         drop(receiver);
         let controller = RecordingEnvironmentController { commands };
         drop(controller.begin());
+    }
+
+    #[test]
+    #[ignore = "exercises the native macOS idle-sleep assertion"]
+    fn native_idle_sleep_assertion_acquires_and_releases() {
+        drop(PreventSleep::start().unwrap());
     }
 
     #[test]

@@ -5,7 +5,7 @@ This maps existing behavior. [ROADMAP.md](../../ROADMAP.md) owns future work;
 [AGENTS.md](../../AGENTS.md) owns implementation invariants.
 
 Initial source baseline: September 1, 2026, `9e9da53aa9ed`. Public macOS release:
-[2.1.19](../releases/2.1.19.md), with custom-domain downloads, a GitHub DMG mirror,
+[2.1.20](../releases/2.1.20.md), with custom-domain downloads, a GitHub DMG mirror,
 and model-download recovery guidance. The initial map was source-only. Listed checks are
 locators unless an executed result is explicitly recorded, as in the
 [keyboard-layout verification](recovery.md#keyboard-layout-resolution).
@@ -539,6 +539,27 @@ its dependency audit reported the same four development-tool advisories already
 present in 2.1.18. The Homebrew cask passed Ruby syntax, style, strict online
 audit apart from the explicit existing token collision, checksum fetch, and
 livecheck (`2.1.19 ==> 2.1.19`). No cask installation replaced the live app.
+
+**Published September 19, 2026:** [2.1.20](../releases/2.1.20.md), release commit
+`4d4734c`, build `20120`. The debug and optimized suites each passed 468 Rust
+tests plus all twelve keyboard-layout child scenarios, with eleven opt-in tests
+skipped per profile. Strict all-target/all-feature Clippy, formatting, the
+native IOKit assertion smoke, app validation, and the release build passed.
+
+Apple accepted the app and DMG for notarization; both were stapled, and
+Gatekeeper accepted the DMG. The versioned custom-domain DMG, latest-DMG pointer,
+and GitHub mirror match the prepared SHA-256
+`fdd66e297c66178a1a0cfa2e19f5b0a5674135d202481b1aeb84d4d1268167af`.
+The published Sparkle ZIP matches the prepared SHA-256
+`a468575ac037b632cc78d479df7430f083748873dd5c71e576ce23be1197917b`,
+and the feed leads with build `20120`.
+
+Both production marketing sites and their Vercel aliases show the versioned
+2.1.20 primary and GitHub downloads. The `.dev` site build and Cloudflare deploy
+passed; the `.com` site's lint, typecheck, build, and Vercel deployment passed.
+The Homebrew cask passed Ruby syntax, style, strict online audit, checksum fetch,
+and livecheck (`2.1.20 ==> 2.1.20`). No installed app or cask was replaced, no
+physical dictation was performed, and no Linux binary was published.
 
 [Recovery](recovery.md) separates supported recovery from known defects.
 [login_item.rs](../../src/login_item.rs), [status_item.rs](../../src/status_item.rs),
